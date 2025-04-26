@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forex Bot Dashboard</title>
+    
+    <!-- External CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
+    
+    <!-- Internal CSS -->
+    <link rel="stylesheet" href="ShinyText.css">
+    
+    <!-- External JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    
+    <style>
+        /* Base styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* Card styles */
+        .card {
+            background-color: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px -1px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Chart container */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin: 0 auto;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Table styles */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .table-container table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table-container th {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .table-container td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        /* Button styles */
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px);
+        }
+
+        /* Status indicator */
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .status-indicator.connected {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .status-indicator.disconnected {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <!-- Gradient Effect Container -->
+    <div id="gradient-container"></div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold shiny-text">Forex Bot Dashboard</h1>
+                <div class="flex items-center space-x-4">
+                    <div class="status-indicator connected">
+                        <span class="h-2 w-2 bg-green-400 rounded-full mr-2"></span>
+                        Connected
+                    </div>
+                    <button class="btn-primary">
+                        <i class="fas fa-cog mr-2"></i>
+                        Settings
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Chart Section -->
+                <div class="card p-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">EUR/USD</h2>
+                        <div class="flex space-x-2">
+                            <button class="btn-primary">1H</button>
+                            <button class="btn-primary">4H</button>
+                            <button class="btn-primary">1D</button>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Trade History -->
+                <div class="card p-4">
+                    <h2 class="text-xl font-semibold mb-4">Trade History</h2>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Type</th>
+                                    <th>Pair</th>
+                                    <th>Price</th>
+                                    <th>Profit/Loss</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tradeHistory">
+                                <!-- Trade history will be populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="space-y-6">
+                <!-- Account Summary -->
+                <div class="card p-4">
+                    <h2 class="text-xl font-semibold mb-4">Account Summary</h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span>Balance</span>
+                            <span class="font-semibold">$10,245.67</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Equity</span>
+                            <span class="font-semibold">$10,532.12</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Margin</span>
+                            <span class="font-semibold">$1,245.00 (12%)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Open Trades -->
+                <div class="card p-4">
+                    <h2 class="text-xl font-semibold mb-4">Open Trades</h2>
+                    <div id="openTrades">
+                        <!-- Open trades will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="GradientEffect.js"></script>
+    <script src="server.js"></script>
+    <script>
+        // Initialize gradient effect
+        const gradient = new GradientEffect({
+            colors: ['#1a2a6c', '#b21f1f', '#fdbb2d'],
+            speed: 0.3,
+            size: 200
+        });
+
+        // Register the annotation plugin
+        Chart.register(ChartAnnotation);
+
+        // Initialize price chart
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        const priceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'EUR/USD',
+                    data: [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: {
+                    duration: 0
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    annotation: {
+                        annotations: {
+                            line1: {
+                                type: 'line',
+                                yMin: 1.0980,
+                                yMax: 1.0980,
+                                borderColor: 'rgba(255, 255, 255, 0.5)',
+                                borderWidth: 1,
+                                label: {
+                                    content: 'Support',
+                                    enabled: true,
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    color: '#fff'
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#fff',
+                            padding: 10
+                        },
+                        border: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#fff',
+                            padding: 10
+                        },
+                        border: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Add some initial data to make the chart visible
+        for (let i = 0; i < 20; i++) {
+            priceChart.data.labels.push(new Date(Date.now() - (20 - i) * 1000).toLocaleTimeString());
+            priceChart.data.datasets[0].data.push(1.0987 + (Math.random() - 0.5) * 0.001);
+        }
+        priceChart.update();
+
+        // WebSocket connection
+        const ws = new WebSocket('ws://localhost:8000');
+        
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'price_update') {
+                // Update price chart
+                priceChart.data.labels.push(new Date().toLocaleTimeString());
+                priceChart.data.datasets[0].data.push(data.price);
+                
+                if (priceChart.data.labels.length > 50) {
+                    priceChart.data.labels.shift();
+                    priceChart.data.datasets[0].data.shift();
+                }
+                
+                priceChart.update();
+            }
+        };
+    </script>
+</body>
+</html> 

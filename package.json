@@ -1,0 +1,23 @@
+{
+  "name": "forex-bot-dashboard",
+  "version": "1.0.0",
+  "description": "Forex Bot Dashboard with WebSocket and API integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.9",
+    "chartjs-plugin-annotation": "^3.1.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "node-fetch": "^3.3.2",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "nodemon": "^3.1.10",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.4"
+  }
+}

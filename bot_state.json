@@ -1,0 +1,16 @@
+{
+    "performance_stats": {
+        "total_trades": 0,
+        "winning_trades": 0,
+        "losing_trades": 0,
+        "total_profit": 0.0,
+        "win_rate": 0.0,
+        "average_profit": 0.0,
+        "average_loss": 0.0,
+        "profit_factor": 0.0,
+        "max_drawdown": 0.0,
+        "current_drawdown": 0.0,
+        "risk_reward_ratio": 0.0,
+        "daily_trades": 0,
+        "daily_profit": 0.0,
+        "last_trade_date": 

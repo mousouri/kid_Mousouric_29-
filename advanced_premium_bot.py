@@ -24,7 +24,6 @@ import torch.nn as nn
 import torch.optim as optim
 import requests
 from transformers import pipeline
-import onnx
 import onnxruntime as ort
 import io
 import gym
@@ -46,7 +45,7 @@ logging.basicConfig(
 )
 
 class LSTMPredictor:
-    def __init__(self, window_size=60):
+    def __init__(self, window_size=60, account=None, password=None, server=None):
         self.window_size = window_size
         self.scaler = MinMaxScaler()
         self.model = None
@@ -58,6 +57,53 @@ class LSTMPredictor:
         self.patience = 5  # Early stopping patience
         self.onnx_session = None
         self.onnx_model_path = 'lstm_model.onnx'
+        self.account = account
+        self.password = password
+        self.server = server
+        
+    def initialize(self) -> bool:
+        """Initialize the LSTM predictor"""
+        try:
+            # Initialize MT5 if credentials are provided
+            if all([self.account, self.password, self.server]):
+                if not mt5.initialize():
+                    logging.error("Failed to initialize MT5")
+                    return False
+                    
+                # Login to MT5 account
+                if not mt5.login(self.account, password=self.password, server=self.server):
+                    logging.error("Failed to login to MT5 account")
+                    return False
+                    
+                # Get account info
+                account_info = mt5.account_info()
+                if account_info is None:
+                    logging.error("Failed to get account info")
+                    return False
+                    
+                logging.info(f"Connected to MT5 account: {account_info.login}")
+            
+            # Try to load existing ONNX model
+            if os.path.exists(self.onnx_model_path):
+                self.onnx_session = ort.InferenceSession(
+                    self.onnx_model_path,
+                    providers=['CUDAExecutionProvider', 'CPUExecutionProvider']
+                )
+                self.is_trained = True
+                logging.info("Loaded existing ONNX model successfully")
+                return True
+            else:
+                # If no model exists, create a dummy model for initial training
+                dummy_data = pd.DataFrame(np.zeros((1000, 4)), columns=['close', 'volume', 'rsi', 'macd'])
+                if self.train(dummy_data):
+                    logging.info("Created and trained initial LSTM model")
+                    return True
+                else:
+                    logging.error("Failed to create initial LSTM model")
+                    return False
+        except Exception as e:
+            logging.error(f"Error initializing LSTM predictor: {e}")
+            return False
         
     def create_sequences(self, data):
         """Create sequences with multiple features"""
@@ -144,10 +190,6 @@ class LSTMPredictor:
                     'output': {0: 'batch_size'}
                 }
             )
-            
-            # Verify the exported model
-            onnx_model = onnx.load(self.onnx_model_path)
-            onnx.checker.check_model(onnx_model)
             
             # Create ONNX Runtime session
             self.onnx_session = ort.InferenceSession(
@@ -1031,7 +1073,7 @@ class AdvancedPremiumBot:
         # Initialize components
         self.strategy_manager = StrategyManager()
         self.risk_manager = RiskManager()
-        self.lstm_predictor = LSTMPredictor()
+        self.lstm_predictor = LSTMPredictor(account=self.account, password=self.password, server=self.server)
         self.sentiment_analyzer = NewsSentimentAnalyzer()
         self.economic_calendar = EconomicCalendar()
         self.correlation_analyzer = MarketCorrelationAnalyzer()

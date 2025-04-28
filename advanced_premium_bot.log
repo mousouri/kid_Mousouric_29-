@@ -232660,3 +232660,17 @@
 2025-04-27 16:05:40,548 - INFO - Initiating bot shutdown...
 2025-04-27 16:05:40,910 - INFO - HTTP Request: POST https://api.telegram.org/bot7465051685:AAGA7xL0KGRYVmOHgObaIrmIcv1RZnHf6AM/sendMessage "HTTP/1.1 200 OK"
 2025-04-27 16:05:40,911 - INFO - Bot shutdown complete
+2025-04-27 20:56:16,412 - INFO - Connected to MT5 account: 5034866250
+2025-04-27 20:56:16,420 - ERROR - Error initializing bot: 'LSTMPredictor' object has no attribute 'account'
+2025-04-27 20:56:16,420 - ERROR - Failed to initialize LSTM predictor
+2025-04-28 01:54:49,517 - INFO - Connected to MT5 account: 5034866250
+2025-04-28 01:54:49,528 - ERROR - Error initializing bot: 'LSTMPredictor' object has no attribute 'account'
+2025-04-28 01:54:49,529 - ERROR - Failed to initialize LSTM predictor
+2025-04-28 02:44:01,802 - INFO - Connected to MT5 account: 5034866250
+2025-04-28 02:44:01,810 - ERROR - Error initializing bot: 'LSTMPredictor' object has no attribute 'account'
+2025-04-28 02:44:01,812 - ERROR - Failed to initialize LSTM predictor
+2025-04-28 03:06:27,576 - INFO - Connected to MT5 account: 5034866250
+2025-04-28 03:06:27,584 - INFO - Connected to MT5 account: 5034866250
+2025-04-28 03:06:27,590 - ERROR - Error preparing data: "None of [Index(['close', 'volume', 'rsi', 'macd'], dtype='object')] are in the [columns]"
+2025-04-28 03:06:27,590 - ERROR - Failed to train LSTM predictor
+2025-04-28 03:06:27,590 - ERROR - Failed to initialize LSTM predictor

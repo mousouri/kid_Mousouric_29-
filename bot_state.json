@@ -13,4 +13,9 @@
         "risk_reward_ratio": 0.0,
         "daily_trades": 0,
         "daily_profit": 0.0,
-        "last_trade_date": 
+        "last_trade_date": null
+    },
+    "market_conditions": {},
+    "correlation_matrix": {},
+    "last_update": null
+} 

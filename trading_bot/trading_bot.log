@@ -1,0 +1,517 @@
+2025-04-28 13:29:09,241 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:29:13,465 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:30:32,969 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:30:32,979 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:30:32,980 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:30:32,980 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:30:32,981 - trading_bot - INFO - Initializing components...
+2025-04-28 13:31:30,181 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:31:30,191 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:31:30,193 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:31:30,193 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:31:30,193 - trading_bot - INFO - Initializing components...
+2025-04-28 13:32:43,194 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:32:43,204 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:32:43,205 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:32:43,206 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:32:43,206 - trading_bot - INFO - Initializing components...
+2025-04-28 13:32:43,206 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:32:43,208 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:32:43,254 - trading_bot - ERROR - Error calculating indicators: 'close'
+2025-04-28 13:32:43,254 - trading_bot - ERROR - Error generating signals: 'close'
+2025-04-28 13:32:43,255 - trading_bot - ERROR - Error analyzing market: 'int' object has no attribute 'iloc'
+2025-04-28 13:32:43,255 - trading_bot - ERROR - Error calculating indicators: 'close'
+2025-04-28 13:32:43,255 - trading_bot - ERROR - Error generating signals: 'close'
+2025-04-28 13:32:43,255 - trading_bot - ERROR - Error analyzing market: 'int' object has no attribute 'iloc'
+2025-04-28 13:32:43,255 - trading_bot - ERROR - Error calculating indicators: 'close'
+2025-04-28 13:32:43,255 - trading_bot - ERROR - Error generating signals: 'close'
+2025-04-28 13:32:43,256 - trading_bot - ERROR - Error analyzing market: 'int' object has no attribute 'iloc'
+2025-04-28 13:33:43,258 - trading_bot - ERROR - Error calculating indicators: 'close'
+2025-04-28 13:33:43,258 - trading_bot - ERROR - Error generating signals: 'close'
+2025-04-28 13:33:43,260 - trading_bot - ERROR - Error analyzing market: 'int' object has no attribute 'iloc'
+2025-04-28 13:33:43,260 - trading_bot - ERROR - Error calculating indicators: 'close'
+2025-04-28 13:33:43,260 - trading_bot - ERROR - Error generating signals: 'close'
+2025-04-28 13:33:43,260 - trading_bot - ERROR - Error analyzing market: 'int' object has no attribute 'iloc'
+2025-04-28 13:33:43,260 - trading_bot - ERROR - Error calculating indicators: 'close'
+2025-04-28 13:33:43,260 - trading_bot - ERROR - Error generating signals: 'close'
+2025-04-28 13:33:43,260 - trading_bot - ERROR - Error analyzing market: 'int' object has no attribute 'iloc'
+2025-04-28 13:33:58,187 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:33:58,198 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:33:58,199 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:33:58,199 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:33:58,199 - trading_bot - INFO - Initializing components...
+2025-04-28 13:33:58,199 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:33:58,200 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:33:58,201 - trading_bot - ERROR - Error analyzing market: 'Strategy' object has no attribute 'calculate_indicators'
+2025-04-28 13:33:58,201 - trading_bot - ERROR - Error analyzing market: 'Strategy' object has no attribute 'calculate_indicators'
+2025-04-28 13:33:58,201 - trading_bot - ERROR - Error analyzing market: 'Strategy' object has no attribute 'calculate_indicators'
+2025-04-28 13:35:24,103 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:35:24,114 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:35:24,117 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:35:24,117 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:35:24,117 - trading_bot - INFO - Initializing components...
+2025-04-28 13:35:24,117 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:35:24,118 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:35:24,119 - trading_bot - ERROR - Error analyzing market: 'Strategy' object has no attribute 'calculate_indicators'
+2025-04-28 13:35:24,119 - trading_bot - ERROR - Error analyzing market: 'Strategy' object has no attribute 'calculate_indicators'
+2025-04-28 13:35:24,119 - trading_bot - ERROR - Error analyzing market: 'Strategy' object has no attribute 'calculate_indicators'
+2025-04-28 13:36:24,132 - trading_bot - ERROR - Error analyzing market: 'Strategy' object has no attribute 'calculate_indicators'
+2025-04-28 13:36:24,133 - trading_bot - ERROR - Error analyzing market: 'Strategy' object has no attribute 'calculate_indicators'
+2025-04-28 13:36:24,133 - trading_bot - ERROR - Error analyzing market: 'Strategy' object has no attribute 'calculate_indicators'
+2025-04-28 13:36:28,917 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:36:28,929 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:36:28,930 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:36:28,930 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:36:28,930 - trading_bot - INFO - Initializing components...
+2025-04-28 13:36:28,930 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:36:28,932 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:36:28,950 - trading_bot - INFO - Calculated position size for EURUSD: 99.61 lots
+2025-04-28 13:36:28,950 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 99.61
+2025-04-28 13:36:28,950 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:36:28,950 - trading_bot - ERROR - Failed to open position for EURUSD: No prices
+2025-04-28 13:36:28,955 - trading_bot - INFO - Calculated position size for GBPUSD: 99.61 lots
+2025-04-28 13:36:28,955 - trading_bot - INFO - Placing 0 order for GBPUSD with lot size 99.61
+2025-04-28 13:36:28,955 - trading_bot - ERROR - Order failed: No money
+2025-04-28 13:36:28,955 - trading_bot - ERROR - Failed to open position for GBPUSD: No money
+2025-04-28 13:36:28,959 - trading_bot - INFO - Calculated position size for USDJPY: 142.88 lots
+2025-04-28 13:36:28,959 - trading_bot - INFO - Placing 0 order for USDJPY with lot size 142.88
+2025-04-28 13:36:28,960 - trading_bot - ERROR - Order failed: No money
+2025-04-28 13:36:28,960 - trading_bot - ERROR - Failed to open position for USDJPY: No money
+2025-04-28 13:37:28,979 - trading_bot - INFO - Calculated position size for EURUSD: 99.61 lots
+2025-04-28 13:37:28,979 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 99.61
+2025-04-28 13:37:28,979 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:37:28,979 - trading_bot - ERROR - Failed to open position for EURUSD: No prices
+2025-04-28 13:37:28,983 - trading_bot - INFO - Calculated position size for GBPUSD: 99.61 lots
+2025-04-28 13:37:28,983 - trading_bot - INFO - Placing 0 order for GBPUSD with lot size 99.61
+2025-04-28 13:37:28,984 - trading_bot - ERROR - Order failed: No money
+2025-04-28 13:37:28,984 - trading_bot - ERROR - Failed to open position for GBPUSD: No money
+2025-04-28 13:37:28,990 - trading_bot - INFO - Calculated position size for USDJPY: 142.86 lots
+2025-04-28 13:37:28,990 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 142.86
+2025-04-28 13:37:28,990 - trading_bot - ERROR - Order failed: Invalid stops
+2025-04-28 13:37:28,990 - trading_bot - ERROR - Failed to open position for USDJPY: Invalid stops
+2025-04-28 13:37:34,157 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:37:34,168 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:37:34,169 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:37:34,169 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:37:34,170 - trading_bot - INFO - Initializing components...
+2025-04-28 13:37:34,170 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:37:34,170 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:37:34,177 - trading_bot - ERROR - Invalid margin requirement for EURUSD
+2025-04-28 13:37:34,177 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 0.0
+2025-04-28 13:37:34,177 - trading_bot - ERROR - Order failed: Invalid volume
+2025-04-28 13:37:34,177 - trading_bot - ERROR - Failed to open position for EURUSD: Invalid volume
+2025-04-28 13:37:34,181 - trading_bot - ERROR - Invalid margin requirement for GBPUSD
+2025-04-28 13:37:34,182 - trading_bot - INFO - Placing 0 order for GBPUSD with lot size 0.0
+2025-04-28 13:37:34,182 - trading_bot - ERROR - Order failed: Invalid volume
+2025-04-28 13:37:34,182 - trading_bot - ERROR - Failed to open position for GBPUSD: Invalid volume
+2025-04-28 13:37:34,185 - trading_bot - ERROR - Invalid margin requirement for USDJPY
+2025-04-28 13:37:34,186 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 0.0
+2025-04-28 13:37:34,186 - trading_bot - ERROR - Order failed: Invalid volume
+2025-04-28 13:37:34,186 - trading_bot - ERROR - Failed to open position for USDJPY: Invalid volume
+2025-04-28 13:38:25,150 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:38:25,161 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:38:25,162 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:38:25,162 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:38:25,163 - trading_bot - INFO - Initializing components...
+2025-04-28 13:38:25,163 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:38:25,164 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:38:25,171 - trading_bot - WARNING - Insufficient margin for EURUSD. Required: 331458.93, Available: 99610.36
+2025-04-28 13:38:25,171 - trading_bot - INFO - Calculated position size for EURUSD: 31.26 lots
+2025-04-28 13:38:25,172 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 31.26
+2025-04-28 13:38:25,172 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:38:25,172 - trading_bot - ERROR - Failed to open position for EURUSD: No prices
+2025-04-28 13:38:25,176 - trading_bot - WARNING - Insufficient margin for GBPUSD. Required: 390803.58, Available: 99610.36
+2025-04-28 13:38:25,177 - trading_bot - INFO - Calculated position size for GBPUSD: 25.32 lots
+2025-04-28 13:38:25,177 - trading_bot - INFO - Placing 0 order for GBPUSD with lot size 25.32
+2025-04-28 13:38:25,411 - trading_bot - ERROR - Order failed: Price changed
+2025-04-28 13:38:25,411 - trading_bot - ERROR - Failed to open position for GBPUSD: Price changed
+2025-04-28 13:38:25,416 - trading_bot - WARNING - Insufficient margin for USDJPY. Required: 420580.0, Available: 99610.36
+2025-04-28 13:38:25,416 - trading_bot - INFO - Calculated position size for USDJPY: 32.69 lots
+2025-04-28 13:38:25,416 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 32.69
+2025-04-28 13:38:25,417 - trading_bot - ERROR - Order failed: Invalid stops
+2025-04-28 13:38:25,417 - trading_bot - ERROR - Failed to open position for USDJPY: Invalid stops
+2025-04-28 13:42:39,932 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:42:39,944 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:42:39,945 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:42:39,945 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:42:39,945 - trading_bot - INFO - Initializing components...
+2025-04-28 13:42:39,945 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:42:39,946 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:42:39,954 - trading_bot - WARNING - Insufficient margin for EURUSD. Required: 161745.01, Available: 79688.29
+2025-04-28 13:42:39,954 - trading_bot - INFO - Calculated position size for EURUSD: 24.90 lots
+2025-04-28 13:42:39,954 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 24.900000000000002
+2025-04-28 13:42:39,955 - trading_bot - ERROR - Error placing order: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:42:39,955 - trading_bot - ERROR - Failed to open position for EURUSD: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:42:39,958 - trading_bot - WARNING - Insufficient margin for GBPUSD. Required: 191447.21, Available: 79688.29
+2025-04-28 13:42:39,959 - trading_bot - INFO - Calculated position size for GBPUSD: 12.45 lots
+2025-04-28 13:42:39,959 - trading_bot - INFO - Placing 0 order for GBPUSD with lot size 12.450000000000001
+2025-04-28 13:42:39,959 - trading_bot - ERROR - Error placing order: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:42:39,959 - trading_bot - ERROR - Failed to open position for GBPUSD: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:42:39,965 - trading_bot - WARNING - Insufficient margin for USDJPY. Required: 206290.00, Available: 79688.29
+2025-04-28 13:42:39,965 - trading_bot - INFO - Calculated position size for USDJPY: 17.86 lots
+2025-04-28 13:42:39,965 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 17.86
+2025-04-28 13:42:39,965 - trading_bot - ERROR - Error placing order: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:42:39,966 - trading_bot - ERROR - Failed to open position for USDJPY: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:43:39,974 - trading_bot - WARNING - Insufficient margin for EURUSD. Required: 161734.55, Available: 79688.29
+2025-04-28 13:43:39,974 - trading_bot - INFO - Calculated position size for EURUSD: 24.90 lots
+2025-04-28 13:43:39,974 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 24.900000000000002
+2025-04-28 13:43:39,975 - trading_bot - ERROR - Error placing order: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:43:39,975 - trading_bot - ERROR - Failed to open position for EURUSD: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:43:39,979 - trading_bot - WARNING - Insufficient margin for GBPUSD. Required: 191441.23, Available: 79688.29
+2025-04-28 13:43:39,979 - trading_bot - INFO - Calculated position size for GBPUSD: 12.45 lots
+2025-04-28 13:43:39,980 - trading_bot - INFO - Placing 0 order for GBPUSD with lot size 12.450000000000001
+2025-04-28 13:43:39,980 - trading_bot - ERROR - Error placing order: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:43:39,980 - trading_bot - ERROR - Failed to open position for GBPUSD: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:43:39,985 - trading_bot - WARNING - Insufficient margin for USDJPY. Required: 206290.00, Available: 79688.29
+2025-04-28 13:43:39,985 - trading_bot - INFO - Calculated position size for USDJPY: 17.86 lots
+2025-04-28 13:43:39,986 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 17.86
+2025-04-28 13:43:39,986 - trading_bot - ERROR - Error placing order: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:43:39,986 - trading_bot - ERROR - Failed to open position for USDJPY: 'SymbolInfo' object has no attribute 'stops_level'
+2025-04-28 13:44:07,930 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 13:44:12,006 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:44:12,016 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:44:12,018 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:44:12,018 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:44:12,018 - trading_bot - INFO - Initializing components...
+2025-04-28 13:44:12,019 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:44:12,020 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:44:12,027 - trading_bot - WARNING - Insufficient margin for EURUSD. Required: 161728.57, Available: 79688.29
+2025-04-28 13:44:12,027 - trading_bot - INFO - Calculated position size for EURUSD: 24.90 lots
+2025-04-28 13:44:12,027 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 24.900000000000002
+2025-04-28 13:44:12,027 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:44:12,027 - trading_bot - ERROR - Failed to open position for EURUSD: No prices
+2025-04-28 13:44:12,032 - trading_bot - WARNING - Insufficient margin for GBPUSD. Required: 191432.27, Available: 79688.29
+2025-04-28 13:44:12,032 - trading_bot - INFO - Calculated position size for GBPUSD: 12.45 lots
+2025-04-28 13:44:12,032 - trading_bot - INFO - Placing 0 order for GBPUSD with lot size 12.450000000000001
+2025-04-28 13:44:12,495 - trading_bot - INFO - Order placed successfully: Request executed
+2025-04-28 13:44:12,496 - trading_bot - INFO - Successfully opened 0 position for GBPUSD
+2025-04-28 13:44:12,499 - trading_bot - WARNING - Insufficient margin for USDJPY. Required: 206290.00, Available: 79688.29
+2025-04-28 13:44:12,500 - trading_bot - INFO - Calculated position size for USDJPY: 17.86 lots
+2025-04-28 13:44:12,500 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 17.86
+2025-04-28 13:44:12,500 - trading_bot - ERROR - Order failed: Invalid stops
+2025-04-28 13:44:12,501 - trading_bot - ERROR - Failed to open position for USDJPY: Invalid stops
+2025-04-28 13:44:22,264 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 13:45:22,931 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:45:22,942 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:45:22,944 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:45:22,944 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:45:22,944 - trading_bot - INFO - Initializing components...
+2025-04-28 13:45:22,944 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:45:22,946 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:45:22,953 - trading_bot - WARNING - Insufficient margin for EURUSD. Required: 161727.08, Available: 79688.29
+2025-04-28 13:45:22,953 - trading_bot - INFO - Calculated position size for EURUSD: 24.90 lots
+2025-04-28 13:45:22,953 - trading_bot - INFO - Placing 1 order for EURUSD with lot size 24.900000000000002
+2025-04-28 13:45:22,954 - trading_bot - ERROR - Order failed: No money
+2025-04-28 13:45:22,954 - trading_bot - ERROR - Failed to open position for EURUSD: No money
+2025-04-28 13:45:22,958 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 13:45:22,963 - trading_bot - WARNING - Insufficient margin for USDJPY. Required: 206290.00, Available: 79688.29
+2025-04-28 13:45:22,963 - trading_bot - INFO - Calculated position size for USDJPY: 17.86 lots
+2025-04-28 13:45:22,963 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 17.86
+2025-04-28 13:45:22,964 - trading_bot - INFO - Adjusted stop loss to minimum distance for USDJPY
+2025-04-28 13:45:22,964 - trading_bot - INFO - Adjusted take profit to minimum distance for USDJPY
+2025-04-28 13:45:22,964 - trading_bot - ERROR - Order failed: Invalid stops
+2025-04-28 13:45:22,964 - trading_bot - ERROR - Failed to open position for USDJPY: Invalid stops
+2025-04-28 13:45:36,638 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 13:46:28,325 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:47:06,646 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:47:06,647 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:47:06,648 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:47:06,648 - trading_bot - INFO - Initializing components...
+2025-04-28 13:47:06,648 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:47:06,649 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:47:06,698 - trading_bot - INFO - Calculated position size for EURUSD: 0.02 lots
+2025-04-28 13:47:06,698 - trading_bot - INFO - Placing 1 order for EURUSD with lot size 0.02
+2025-04-28 13:47:15,867 - trading_bot - ERROR - Order failed: Requote
+2025-04-28 13:47:15,868 - trading_bot - ERROR - Failed to open position for EURUSD: Requote
+2025-04-28 13:47:15,874 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 13:47:15,878 - trading_bot - INFO - Calculated position size for USDJPY: 0.04 lots
+2025-04-28 13:47:15,878 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 0.04
+2025-04-28 13:47:15,879 - trading_bot - INFO - Adjusted stop loss to minimum distance for USDJPY
+2025-04-28 13:47:15,879 - trading_bot - INFO - Adjusted take profit to minimum distance for USDJPY
+2025-04-28 13:47:15,879 - trading_bot - ERROR - Order failed: Invalid stops
+2025-04-28 13:47:15,879 - trading_bot - ERROR - Failed to open position for USDJPY: Invalid stops
+2025-04-28 13:48:05,532 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 13:54:08,690 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 13:54:08,701 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 13:54:08,702 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 13:54:08,702 - trading_bot - INFO - Connection status: Connected
+2025-04-28 13:54:08,702 - trading_bot - INFO - Initializing components...
+2025-04-28 13:54:08,702 - trading_bot - INFO - Starting trading bot...
+2025-04-28 13:54:09,243 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 13:54:09,792 - trading_bot - INFO - Calculated levels - Entry: 1.13557, SL: 1.13591, TP: 1.13455
+2025-04-28 13:54:09,793 - trading_bot - INFO - Calculated position size for EURUSD: 0.01 lots
+2025-04-28 13:54:09,793 - trading_bot - INFO - Placing 1 order for EURUSD with lot size 0.01
+2025-04-28 13:54:10,300 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:54:10,831 - trading_bot - ERROR - Failed to place order for EURUSD: No prices
+2025-04-28 13:54:11,324 - trading_bot - INFO - Calculated levels - Entry: 1.33427, SL: 1.33391, TP: 1.33534
+2025-04-28 13:54:11,324 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 13:54:11,328 - trading_bot - INFO - Calculated levels - Entry: 143.424, SL: 143.37957, TP: 143.55729
+2025-04-28 13:54:11,328 - trading_bot - INFO - Calculated position size for USDJPY: 0.02 lots
+2025-04-28 13:54:11,329 - trading_bot - INFO - Placing 0 order for USDJPY with lot size 0.02
+2025-04-28 13:54:13,140 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:54:13,657 - trading_bot - ERROR - Failed to place order for USDJPY: No prices
+2025-04-28 13:55:14,146 - trading_bot - INFO - Calculated levels - Entry: 1.13537, SL: 1.13573, TP: 1.13429
+2025-04-28 13:55:14,146 - trading_bot - INFO - Calculated position size for EURUSD: 0.01 lots
+2025-04-28 13:55:14,147 - trading_bot - INFO - Placing 1 order for EURUSD with lot size 0.01
+2025-04-28 13:55:14,649 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:55:15,119 - trading_bot - ERROR - Failed to place order for EURUSD: No prices
+2025-04-28 13:55:15,637 - trading_bot - INFO - Calculated levels - Entry: 1.33413, SL: 1.33451, TP: 1.333
+2025-04-28 13:55:15,637 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 13:55:15,642 - trading_bot - INFO - Calculated levels - Entry: 143.46, SL: 143.412, TP: 143.604
+2025-04-28 13:55:15,642 - trading_bot - INFO - Calculated position size for USDJPY: 0.02 lots
+2025-04-28 13:55:15,642 - trading_bot - INFO - Placing 0 order for USDJPY with lot size 0.02
+2025-04-28 13:55:16,101 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:55:16,558 - trading_bot - ERROR - Failed to place order for USDJPY: No prices
+2025-04-28 13:56:17,040 - trading_bot - INFO - Calculated levels - Entry: 1.13516, SL: 1.13554, TP: 1.13403
+2025-04-28 13:56:17,041 - trading_bot - INFO - Calculated position size for EURUSD: 0.01 lots
+2025-04-28 13:56:17,041 - trading_bot - INFO - Placing 1 order for EURUSD with lot size 0.01
+2025-04-28 13:56:17,749 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:56:18,229 - trading_bot - ERROR - Failed to place order for EURUSD: No prices
+2025-04-28 13:56:18,733 - trading_bot - INFO - Calculated levels - Entry: 1.33385, SL: 1.33426, TP: 1.33263
+2025-04-28 13:56:18,733 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 13:56:18,736 - trading_bot - INFO - Calculated levels - Entry: 143.468, SL: 143.51171, TP: 143.33686
+2025-04-28 13:56:18,736 - trading_bot - INFO - Calculated position size for USDJPY: 0.02 lots
+2025-04-28 13:56:18,737 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 0.02
+2025-04-28 13:56:19,836 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 13:56:20,304 - trading_bot - ERROR - Failed to place order for USDJPY: No prices
+2025-04-28 13:56:32,930 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 14:03:03,079 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 14:03:03,100 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 14:03:03,102 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 14:03:03,103 - trading_bot - INFO - Connection status: Connected
+2025-04-28 14:03:03,103 - trading_bot - INFO - Initializing components...
+2025-04-28 14:03:03,103 - trading_bot - INFO - Starting trading bot...
+2025-04-28 14:03:04,089 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 14:03:04,580 - trading_bot - INFO - Calculated levels - Entry: 1.13453, SL: 1.13409, TP: 1.13586
+2025-04-28 14:03:04,609 - trading_bot - ERROR - Error calculating position size: 'Config' object has no attribute 'risk_per_trade'
+2025-04-28 14:03:04,609 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 0.0
+2025-04-28 14:03:08,128 - trading_bot - ERROR - Order failed: Invalid volume
+2025-04-28 14:03:08,652 - trading_bot - ERROR - Failed to place order for EURUSD: Invalid volume
+2025-04-28 14:03:09,138 - trading_bot - INFO - Calculated levels - Entry: 1.33362, SL: 1.33416, TP: 1.33201
+2025-04-28 14:03:09,138 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:03:09,142 - trading_bot - INFO - Calculated levels - Entry: 143.469, SL: 143.42314, TP: 143.60657
+2025-04-28 14:03:09,147 - trading_bot - ERROR - Error calculating position size: 'Config' object has no attribute 'risk_per_trade'
+2025-04-28 14:03:09,147 - trading_bot - INFO - Placing 0 order for USDJPY with lot size 0.0
+2025-04-28 14:03:12,858 - trading_bot - ERROR - Order failed: Invalid volume
+2025-04-28 14:03:13,656 - trading_bot - ERROR - Failed to place order for USDJPY: Invalid volume
+2025-04-28 14:03:16,856 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 14:04:23,706 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 14:04:23,718 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 14:04:23,719 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 14:04:23,719 - trading_bot - INFO - Connection status: Connected
+2025-04-28 14:04:23,719 - trading_bot - INFO - Initializing components...
+2025-04-28 14:04:23,720 - trading_bot - INFO - Starting trading bot...
+2025-04-28 14:04:24,380 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 14:04:26,222 - trading_bot - INFO - Calculated levels - Entry: 1.13452, SL: 1.13408, TP: 1.13583
+2025-04-28 14:04:26,222 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:26,831 - trading_bot - INFO - Calculated levels - Entry: 1.33348, SL: 1.33294, TP: 1.33509
+2025-04-28 14:04:26,831 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:04:26,836 - trading_bot - INFO - Calculated levels - Entry: 143.457, SL: 143.412, TP: 143.592
+2025-04-28 14:04:26,837 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:27,533 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:04:33,094 - trading_bot - INFO - Calculated levels - Entry: 1.13457, SL: 1.13413, TP: 1.13588
+2025-04-28 14:04:33,095 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:33,658 - trading_bot - INFO - Calculated levels - Entry: 1.33349, SL: 1.33295, TP: 1.3351
+2025-04-28 14:04:33,659 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:04:33,662 - trading_bot - INFO - Calculated levels - Entry: 143.454, SL: 143.409, TP: 143.589
+2025-04-28 14:04:33,663 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:34,224 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:04:39,954 - trading_bot - INFO - Calculated levels - Entry: 1.13461, SL: 1.13416, TP: 1.13596
+2025-04-28 14:04:39,954 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:40,426 - trading_bot - INFO - Calculated levels - Entry: 1.33347, SL: 1.33293, TP: 1.33508
+2025-04-28 14:04:40,426 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:04:40,430 - trading_bot - INFO - Calculated levels - Entry: 143.455, SL: 143.40943, TP: 143.59171
+2025-04-28 14:04:40,430 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:40,889 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:04:46,367 - trading_bot - INFO - Calculated levels - Entry: 1.13453, SL: 1.1341, TP: 1.13583
+2025-04-28 14:04:46,367 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:46,823 - trading_bot - INFO - Calculated levels - Entry: 1.33347, SL: 1.33398, TP: 1.33194
+2025-04-28 14:04:46,824 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:04:46,828 - trading_bot - INFO - Calculated levels - Entry: 143.462, SL: 143.419, TP: 143.591
+2025-04-28 14:04:46,829 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:47,331 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:04:52,854 - trading_bot - INFO - Calculated levels - Entry: 1.13444, SL: 1.13399, TP: 1.13578
+2025-04-28 14:04:52,854 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:53,891 - trading_bot - INFO - Calculated levels - Entry: 1.33341, SL: 1.33289, TP: 1.33496
+2025-04-28 14:04:53,891 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:04:53,896 - trading_bot - INFO - Calculated levels - Entry: 143.465, SL: 143.42186, TP: 143.59443
+2025-04-28 14:04:53,897 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:04:56,527 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:05:03,767 - trading_bot - INFO - Calculated levels - Entry: 1.13453, SL: 1.13408, TP: 1.13587
+2025-04-28 14:05:03,767 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:04,526 - trading_bot - INFO - Calculated levels - Entry: 1.33347, SL: 1.33399, TP: 1.33191
+2025-04-28 14:05:04,526 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:05:04,530 - trading_bot - INFO - Calculated levels - Entry: 143.465, SL: 143.42186, TP: 143.59443
+2025-04-28 14:05:04,530 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:05,000 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:05:10,485 - trading_bot - INFO - Calculated levels - Entry: 1.13467, SL: 1.13421, TP: 1.13605
+2025-04-28 14:05:10,486 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:10,961 - trading_bot - INFO - Calculated levels - Entry: 1.33354, SL: 1.33407, TP: 1.33196
+2025-04-28 14:05:10,963 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:05:10,969 - trading_bot - INFO - Calculated levels - Entry: 143.45, SL: 143.40529, TP: 143.58414
+2025-04-28 14:05:10,970 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:12,798 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:05:18,309 - trading_bot - INFO - Calculated levels - Entry: 1.13478, SL: 1.13431, TP: 1.1362
+2025-04-28 14:05:18,309 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:19,791 - trading_bot - INFO - Calculated levels - Entry: 1.3336, SL: 1.33414, TP: 1.33199
+2025-04-28 14:05:19,791 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:05:19,796 - trading_bot - INFO - Calculated levels - Entry: 143.445, SL: 143.39843, TP: 143.58471
+2025-04-28 14:05:19,796 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:20,312 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:05:25,768 - trading_bot - INFO - Calculated levels - Entry: 1.13473, SL: 1.13426, TP: 1.13615
+2025-04-28 14:05:25,769 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:26,280 - trading_bot - INFO - Calculated levels - Entry: 1.33354, SL: 1.33408, TP: 1.33193
+2025-04-28 14:05:26,281 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:05:26,285 - trading_bot - INFO - Calculated levels - Entry: 143.447, SL: 143.40043, TP: 143.58671
+2025-04-28 14:05:26,285 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:26,776 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:05:32,244 - trading_bot - INFO - Calculated levels - Entry: 1.13473, SL: 1.13426, TP: 1.13615
+2025-04-28 14:05:32,244 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:32,715 - trading_bot - INFO - Calculated levels - Entry: 1.33357, SL: 1.33411, TP: 1.33196
+2025-04-28 14:05:32,716 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:05:32,719 - trading_bot - INFO - Calculated levels - Entry: 143.451, SL: 143.40443, TP: 143.59071
+2025-04-28 14:05:32,720 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:33,192 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:05:38,675 - trading_bot - INFO - Calculated levels - Entry: 1.13468, SL: 1.13421, TP: 1.1361
+2025-04-28 14:05:38,675 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:39,214 - trading_bot - INFO - Calculated levels - Entry: 1.33361, SL: 1.33415, TP: 1.33199
+2025-04-28 14:05:39,215 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:05:39,219 - trading_bot - INFO - Calculated levels - Entry: 143.46, SL: 143.41343, TP: 143.59971
+2025-04-28 14:05:39,219 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:39,772 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:05:45,272 - trading_bot - INFO - Calculated levels - Entry: 1.13467, SL: 1.13421, TP: 1.13605
+2025-04-28 14:05:45,272 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:45,744 - trading_bot - INFO - Calculated levels - Entry: 1.33363, SL: 1.33416, TP: 1.33204
+2025-04-28 14:05:45,744 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:05:45,748 - trading_bot - INFO - Calculated levels - Entry: 143.458, SL: 143.41471, TP: 143.58786
+2025-04-28 14:05:45,749 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:46,222 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:05:51,721 - trading_bot - INFO - Calculated levels - Entry: 1.13477, SL: 1.13429, TP: 1.1362
+2025-04-28 14:05:51,721 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:52,214 - trading_bot - INFO - Calculated levels - Entry: 1.33371, SL: 1.33426, TP: 1.33207
+2025-04-28 14:05:52,215 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:05:52,219 - trading_bot - INFO - Calculated levels - Entry: 143.451, SL: 143.40671, TP: 143.58386
+2025-04-28 14:05:52,219 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:52,897 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:05:58,492 - trading_bot - INFO - Calculated levels - Entry: 1.13469, SL: 1.13421, TP: 1.13612
+2025-04-28 14:05:58,492 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:58,956 - trading_bot - INFO - Calculated levels - Entry: 1.33364, SL: 1.33419, TP: 1.332
+2025-04-28 14:05:58,956 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:05:58,960 - trading_bot - INFO - Calculated levels - Entry: 143.457, SL: 143.41243, TP: 143.59071
+2025-04-28 14:05:58,961 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:05:59,427 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:06:05,340 - trading_bot - INFO - Calculated levels - Entry: 1.13467, SL: 1.13419, TP: 1.1361
+2025-04-28 14:06:05,340 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:07,028 - trading_bot - INFO - Calculated levels - Entry: 1.33363, SL: 1.33418, TP: 1.33199
+2025-04-28 14:06:07,028 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:06:07,033 - trading_bot - INFO - Calculated levels - Entry: 143.456, SL: 143.41143, TP: 143.58971
+2025-04-28 14:06:07,033 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:07,553 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:06:13,046 - trading_bot - INFO - Calculated levels - Entry: 1.13468, SL: 1.1342, TP: 1.13611
+2025-04-28 14:06:13,046 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:13,640 - trading_bot - INFO - Calculated levels - Entry: 1.33362, SL: 1.33417, TP: 1.33198
+2025-04-28 14:06:13,641 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:06:13,645 - trading_bot - INFO - Calculated levels - Entry: 143.456, SL: 143.41143, TP: 143.58971
+2025-04-28 14:06:13,645 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:14,093 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:06:19,610 - trading_bot - INFO - Calculated levels - Entry: 1.13463, SL: 1.13415, TP: 1.13608
+2025-04-28 14:06:19,610 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:20,119 - trading_bot - INFO - Calculated levels - Entry: 1.33362, SL: 1.33417, TP: 1.33197
+2025-04-28 14:06:20,120 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:06:20,124 - trading_bot - INFO - Calculated levels - Entry: 143.455, SL: 143.41043, TP: 143.58871
+2025-04-28 14:06:20,124 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:20,716 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:06:26,218 - trading_bot - INFO - Calculated levels - Entry: 1.13463, SL: 1.13415, TP: 1.13608
+2025-04-28 14:06:26,218 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:26,748 - trading_bot - INFO - Calculated levels - Entry: 1.33363, SL: 1.33418, TP: 1.33198
+2025-04-28 14:06:26,748 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:06:26,751 - trading_bot - INFO - Calculated levels - Entry: 143.457, SL: 143.41243, TP: 143.59071
+2025-04-28 14:06:26,752 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:27,227 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:06:32,705 - trading_bot - INFO - Calculated levels - Entry: 1.13463, SL: 1.13415, TP: 1.13608
+2025-04-28 14:06:32,706 - trading_bot - ERROR - Error processing EURUSD: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:33,395 - trading_bot - INFO - Calculated levels - Entry: 1.33362, SL: 1.33417, TP: 1.33197
+2025-04-28 14:06:33,396 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:06:33,403 - trading_bot - INFO - Calculated levels - Entry: 143.46, SL: 143.50471, TP: 143.32586
+2025-04-28 14:06:33,403 - trading_bot - ERROR - Error processing USDJPY: 'Config' object has no attribute 'max_risk_per_trade'
+2025-04-28 14:06:34,532 - trading_bot - ERROR - Error in trading cycle: 'Config' object has no attribute 'trading_interval'
+2025-04-28 14:06:39,259 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 14:06:39,271 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 14:06:39,272 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 14:06:39,272 - trading_bot - INFO - Connection status: Connected
+2025-04-28 14:06:39,272 - trading_bot - INFO - Initializing components...
+2025-04-28 14:06:39,273 - trading_bot - INFO - Starting trading bot...
+2025-04-28 14:06:40,147 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 14:06:40,867 - trading_bot - INFO - Calculated levels - Entry: 1.13466, SL: 1.13418, TP: 1.13611
+2025-04-28 14:06:40,901 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 0.01
+2025-04-28 14:06:41,669 - trading_bot - INFO - Order placed successfully: Request executed
+2025-04-28 14:06:41,674 - trading_bot - INFO - Calculated levels - Entry: 1.33363, SL: 1.33418, TP: 1.33198
+2025-04-28 14:06:41,675 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:06:41,679 - trading_bot - INFO - Calculated levels - Entry: 143.457, SL: 143.41229, TP: 143.59114
+2025-04-28 14:06:41,686 - trading_bot - INFO - Placing 0 order for USDJPY with lot size 0.01
+2025-04-28 14:06:45,151 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 14:06:45,609 - trading_bot - ERROR - Failed to place order for USDJPY: No prices
+2025-04-28 14:07:47,155 - trading_bot - INFO - Calculated levels - Entry: 1.13462, SL: 1.13419, TP: 1.13592
+2025-04-28 14:07:47,156 - trading_bot - INFO - Placing 0 order for EURUSD with lot size 0.01
+2025-04-28 14:07:48,000 - trading_bot - INFO - Order placed successfully: Request executed
+2025-04-28 14:07:48,005 - trading_bot - INFO - Calculated levels - Entry: 1.33363, SL: 1.33414, TP: 1.33211
+2025-04-28 14:07:48,005 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 14:07:48,009 - trading_bot - INFO - Calculated levels - Entry: 143.453, SL: 143.49329, TP: 143.33214
+2025-04-28 14:07:48,010 - trading_bot - INFO - Placing 1 order for USDJPY with lot size 0.01
+2025-04-28 14:07:51,497 - trading_bot - ERROR - Order failed: No prices
+2025-04-28 14:07:51,959 - trading_bot - ERROR - Failed to place order for USDJPY: No prices
+2025-04-28 14:07:52,447 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 15:22:00,155 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 15:22:00,172 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 15:22:00,174 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 15:22:00,174 - trading_bot - INFO - Connection status: Connected
+2025-04-28 15:22:00,174 - trading_bot - INFO - Initializing components...
+2025-04-28 15:22:00,175 - trading_bot - INFO - Starting trading bot...
+2025-04-28 15:22:00,869 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 15:22:01,334 - trading_bot - ERROR - Error in trading cycle: object function can't be used in 'await' expression
+2025-04-28 15:22:09,547 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 15:59:40,736 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 15:59:40,746 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 15:59:40,748 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 15:59:40,748 - trading_bot - INFO - Connection status: Connected
+2025-04-28 15:59:40,749 - trading_bot - INFO - Initializing components...
+2025-04-28 15:59:40,749 - trading_bot - INFO - Starting trading bot...
+2025-04-28 15:59:41,382 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 15:59:41,833 - trading_bot - ERROR - Error in trading cycle: object function can't be used in 'await' expression
+2025-04-28 15:59:49,778 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 16:09:50,135 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 16:09:50,148 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 16:09:50,149 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 16:09:50,149 - trading_bot - INFO - Connection status: Connected
+2025-04-28 16:09:50,150 - trading_bot - INFO - Initializing components...
+2025-04-28 16:09:50,150 - trading_bot - INFO - Starting trading bot...
+2025-04-28 16:09:50,813 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 16:09:51,471 - trading_bot - INFO - Calculated levels - Entry: 1.13487, SL: 1.13547, TP: 1.13306
+2025-04-28 16:09:51,497 - trading_bot - INFO - Placing SELL order for EURUSD with lot size 0.01
+2025-04-28 16:09:52,247 - trading_bot - INFO - Order placed successfully: Request executed
+2025-04-28 16:09:52,253 - trading_bot - INFO - Calculated levels - Entry: 1.33488, SL: 1.33436, TP: 1.33644
+2025-04-28 16:09:52,253 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 16:09:52,257 - trading_bot - INFO - Calculated levels - Entry: 143.354, SL: 143.306, TP: 143.498
+2025-04-28 16:09:52,264 - trading_bot - INFO - Placing BUY order for USDJPY with lot size 0.01
+2025-04-28 16:09:53,086 - trading_bot - INFO - Order placed successfully: Request executed
+2025-04-28 16:10:53,095 - trading_bot - INFO - Calculated levels - Entry: 1.13463, SL: 1.13523, TP: 1.13282
+2025-04-28 16:10:53,096 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-28 16:10:53,101 - trading_bot - INFO - Calculated levels - Entry: 1.33483, SL: 1.33432, TP: 1.33636
+2025-04-28 16:10:53,101 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 16:10:53,105 - trading_bot - INFO - Calculated levels - Entry: 143.354, SL: 143.30786, TP: 143.49243
+2025-04-28 16:10:53,105 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-28 16:10:59,945 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-28 16:11:13,464 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-28 16:11:13,476 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-28 16:11:13,477 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-28 16:11:13,477 - trading_bot - INFO - Connection status: Connected
+2025-04-28 16:11:13,478 - trading_bot - INFO - Initializing components...
+2025-04-28 16:11:13,478 - trading_bot - INFO - Starting trading bot...
+2025-04-28 16:11:14,018 - trading_bot - INFO - Trading bot started successfully
+2025-04-28 16:11:14,486 - trading_bot - INFO - Calculated levels - Entry: 1.13487, SL: 1.13548, TP: 1.13303
+2025-04-28 16:11:14,486 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-28 16:11:14,490 - trading_bot - INFO - Calculated levels - Entry: 1.33491, SL: 1.3344, TP: 1.33644
+2025-04-28 16:11:14,490 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-28 16:11:14,495 - trading_bot - INFO - Calculated levels - Entry: 143.354, SL: 143.30657, TP: 143.49629
+2025-04-28 16:11:14,495 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-28 16:12:10,162 - trading_bot - INFO - Trading bot received shutdown signal

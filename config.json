@@ -1,0 +1,12 @@
+{
+    "symbols": ["EURUSD", "GBPUSD", "USDJPY"],
+    "trading_interval": 60,
+    "max_risk_per_trade": 0.02,
+    "max_open_trades": 3,
+    "max_daily_trades": 10,
+    "stop_loss_pips": 20,
+    "take_profit_pips": 40,
+    "trailing_stop_pips": 30,
+    "log_level": "INFO",
+    "log_file": "trading_bot.log"
+} 

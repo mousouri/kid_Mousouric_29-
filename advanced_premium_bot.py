@@ -30,19 +30,311 @@ import gym
 from gym import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+import random
+import ctypes
+from ctypes import cdll, c_double, c_int, c_char_p, POINTER
+import statistics
+from collections import deque
+from trading_optimizer import calculate_twap as py_calculate_twap, optimize_order_split as py_optimize_order_split
 
-# Load environment variables
-load_dotenv()
+# Configure logging to suppress the C++ library warning
+logging.getLogger().setLevel(logging.ERROR)
 
-# Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('advanced_premium_bot.log'),
-        logging.StreamHandler()
-    ]
-)
+# Load C++ library for performance-critical operations
+USE_CPP_LIB = False
+trading_lib = None
+
+# Only try to load the C++ library if it exists
+dll_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trading_optimizer.dll')
+if os.path.exists(dll_path):
+    try:
+        trading_lib = cdll.LoadLibrary(dll_path)
+        trading_lib.calculate_twap.argtypes = [POINTER(c_double), c_int, c_int]
+        trading_lib.calculate_twap.restype = c_double
+        trading_lib.optimize_order_split.argtypes = [c_double, POINTER(c_double), c_int]
+        trading_lib.optimize_order_split.restype = POINTER(c_double)
+        USE_CPP_LIB = True
+    except Exception:
+        pass
+
+# Restore logging level
+logging.getLogger().setLevel(logging.INFO)
+
+class OrderRouter:
+    def __init__(self):
+        self.brokers = {
+            'mt5_primary': {
+                'name': 'MT5 Primary',
+                'min_lot': 0.01,
+                'max_lot': 100.0,
+                'slippage': 0.0001,
+                'latency': 0.1
+            },
+            'mt5_secondary': {
+                'name': 'MT5 Secondary',
+                'min_lot': 0.01,
+                'max_lot': 50.0,
+                'slippage': 0.0002,
+                'latency': 0.15
+            }
+        }
+        self.order_history = []
+        self.slippage_history = {}
+        self.latency_history = {}
+        self.tick_data = {}
+        self.websocket_connections = {}
+        self.tick_data_queues = {}
+        self.last_twap_calculation = {}
+        self.twap_windows = {
+            'M1': 60,
+            'M5': 300,
+            'M15': 900,
+            'H1': 3600
+        }
+        
+    def initialize_websocket(self, symbol: str) -> bool:
+        """Initialize WebSocket connection for real-time tick data"""
+        try:
+            if symbol in self.websocket_connections:
+                return True
+                
+            # Create WebSocket connection
+            ws = websocket.WebSocketApp(
+                f"wss://stream.binance.com:9443/ws/{symbol.lower()}@ticker",
+                on_message=self._on_websocket_message,
+                on_error=self._on_websocket_error,
+                on_close=self._on_websocket_close
+            )
+            
+            # Start WebSocket in a separate thread
+            ws_thread = threading.Thread(target=ws.run_forever)
+            ws_thread.daemon = True
+            ws_thread.start()
+            
+            self.websocket_connections[symbol] = ws
+            self.tick_data_queues[symbol] = queue.Queue()
+            
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error initializing WebSocket for {symbol}: {e}")
+            return False
+            
+    def _on_websocket_message(self, ws, message):
+        """Handle WebSocket messages"""
+        try:
+            data = json.loads(message)
+            symbol = data['s']
+            if symbol in self.tick_data_queues:
+                self.tick_data_queues[symbol].put({
+                    'price': float(data['c']),
+                    'volume': float(data['v']),
+                    'timestamp': int(data['E'])
+                })
+        except Exception as e:
+            logging.error(f"Error processing WebSocket message: {e}")
+            
+    def _on_websocket_error(self, ws, error):
+        """Handle WebSocket errors"""
+        logging.error(f"WebSocket error: {error}")
+        
+    def _on_websocket_close(self, ws, close_status_code, close_msg):
+        """Handle WebSocket close"""
+        logging.info("WebSocket connection closed")
+        
+    def get_tick_data(self, symbol: str) -> Optional[Dict]:
+        """Get latest tick data from WebSocket"""
+        try:
+            if symbol not in self.tick_data_queues:
+                if not self.initialize_websocket(symbol):
+                    return None
+                    
+            try:
+                return self.tick_data_queues[symbol].get_nowait()
+            except queue.Empty:
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error getting tick data for {symbol}: {e}")
+            return None
+            
+    def calculate_twap(self, symbol: str, timeframe: str, size: float) -> float:
+        """Calculate Time-Weighted Average Price"""
+        try:
+            current_time = time.time()
+            
+            # Check if we need to recalculate
+            if (symbol in self.last_twap_calculation and 
+                current_time - self.last_twap_calculation[symbol] < 60):
+                return self.tick_data.get(symbol, {}).get('twap', 0)
+                
+            # Get tick data
+            ticks = []
+            window = self.twap_windows[timeframe]
+            start_time = current_time - window
+            
+            while not self.tick_data_queues[symbol].empty():
+                tick = self.tick_data_queues[symbol].get_nowait()
+                if tick['timestamp'] >= start_time:
+                    ticks.append(tick)
+                    
+            if not ticks:
+                return 0
+                
+            # Use C++ or Python implementation
+            if USE_CPP_LIB:
+                # Convert to C++ compatible format
+                prices = (c_double * len(ticks))()
+                for i, tick in enumerate(ticks):
+                    prices[i] = tick['price']
+                    
+                twap = trading_lib.calculate_twap(prices, len(ticks), window)
+            else:
+                # Python implementation
+                prices = [tick['price'] for tick in ticks]
+                twap = py_calculate_twap(prices, window)
+                
+            # Cache result
+            if symbol not in self.tick_data:
+                self.tick_data[symbol] = {}
+            self.tick_data[symbol]['twap'] = twap
+            self.last_twap_calculation[symbol] = current_time
+            
+            return twap
+            
+        except Exception as e:
+            logging.error(f"Error calculating TWAP for {symbol}: {e}")
+            return 0
+            
+    def optimize_order_split(self, symbol: str, total_size: float) -> Dict[str, float]:
+        """Optimize order split across brokers"""
+        try:
+            # Get broker parameters
+            broker_params = []
+            for broker_id, broker in self.brokers.items():
+                broker_params.append({
+                    'id': broker_id,
+                    'min_lot': broker['min_lot'],
+                    'max_lot': broker['max_lot'],
+                    'slippage': broker['slippage'],
+                    'latency': broker['latency']
+                })
+                
+            # Use C++ or Python implementation
+            if USE_CPP_LIB:
+                # Convert to C++ compatible format
+                params = (c_double * len(broker_params))()
+                for i, param in enumerate(broker_params):
+                    params[i] = param['slippage'] * param['latency']
+                    
+                splits = trading_lib.optimize_order_split(total_size, params, len(broker_params))
+                
+                # Convert result to dictionary
+                result = {}
+                for i, broker in enumerate(broker_params):
+                    result[broker['id']] = splits[i]
+                return result
+            else:
+                # Python implementation
+                return py_optimize_order_split(total_size, broker_params)
+                
+        except Exception as e:
+            logging.error(f"Error optimizing order split: {e}")
+            return {}
+            
+    def track_slippage(self, symbol: str, intended_price: float, actual_price: float) -> None:
+        """Track slippage for post-trade analysis"""
+        try:
+            if symbol not in self.slippage_history:
+                self.slippage_history[symbol] = []
+                
+            slippage = (actual_price - intended_price) / intended_price
+            self.slippage_history[symbol].append(slippage)
+            
+            # Keep only last 1000 values
+            if len(self.slippage_history[symbol]) > 1000:
+                self.slippage_history[symbol] = self.slippage_history[symbol][-1000:]
+                
+        except Exception as e:
+            logging.error(f"Error tracking slippage: {e}")
+            
+    def track_latency(self, symbol: str, order_time: float, fill_time: float) -> None:
+        """Track execution latency for post-trade analysis"""
+        try:
+            if symbol not in self.latency_history:
+                self.latency_history[symbol] = []
+                
+            latency = fill_time - order_time
+            self.latency_history[symbol].append(latency)
+            
+            # Keep only last 1000 values
+            if len(self.latency_history[symbol]) > 1000:
+                self.latency_history[symbol] = self.latency_history[symbol][-1000:]
+                
+        except Exception as e:
+            logging.error(f"Error tracking latency: {e}")
+            
+    def get_slippage_stats(self, symbol: str) -> Dict[str, float]:
+        """Get slippage statistics for a symbol"""
+        try:
+            if symbol not in self.slippage_history or not self.slippage_history[symbol]:
+                return {
+                    'mean': 0,
+                    'median': 0,
+                    'std': 0,
+                    'max': 0,
+                    'min': 0
+                }
+                
+            slippages = self.slippage_history[symbol]
+            return {
+                'mean': statistics.mean(slippages),
+                'median': statistics.median(slippages),
+                'std': statistics.stdev(slippages) if len(slippages) > 1 else 0,
+                'max': max(slippages),
+                'min': min(slippages)
+            }
+            
+        except Exception as e:
+            logging.error(f"Error getting slippage stats: {e}")
+            return {
+                'mean': 0,
+                'median': 0,
+                'std': 0,
+                'max': 0,
+                'min': 0
+            }
+            
+    def get_latency_stats(self, symbol: str) -> Dict[str, float]:
+        """Get latency statistics for a symbol"""
+        try:
+            if symbol not in self.latency_history or not self.latency_history[symbol]:
+                return {
+                    'mean': 0,
+                    'median': 0,
+                    'std': 0,
+                    'max': 0,
+                    'min': 0
+                }
+                
+            latencies = self.latency_history[symbol]
+            return {
+                'mean': statistics.mean(latencies),
+                'median': statistics.median(latencies),
+                'std': statistics.stdev(latencies) if len(latencies) > 1 else 0,
+                'max': max(latencies),
+                'min': min(latencies)
+            }
+            
+        except Exception as e:
+            logging.error(f"Error getting latency stats: {e}")
+            return {
+                'mean': 0,
+                'median': 0,
+                'std': 0,
+                'max': 0,
+                'min': 0
+            }
 
 class LSTMPredictor:
     def __init__(self, window_size=60, account=None, password=None, server=None):
@@ -774,6 +1066,196 @@ class RiskManager:
         except Exception as e:
             logging.error(f"Error updating performance history: {e}")
 
+class AdvancedRiskManager:
+    def __init__(self):
+        self.volatility_thresholds = {
+            'low': 0.5,    # 50th percentile
+            'medium': 0.7,  # 70th percentile
+            'high': 0.9    # 90th percentile
+        }
+        self.circuit_breaker_threshold = 0.05  # 5% move in 1 minute
+        self.monte_carlo_simulations = 10000
+        self.volatility_history = {}
+        self.price_history = {}
+        self.simulation_results = {}
+        self.last_simulation_time = None
+        self.simulation_interval = 3600  # Run simulation every hour
+        
+    def calculate_dynamic_position_size(self, symbol: str, base_size: float, atr: float) -> float:
+        """Calculate position size based on ATR percentiles"""
+        try:
+            if symbol not in self.volatility_history:
+                self.volatility_history[symbol] = []
+                
+            # Add current ATR to history
+            self.volatility_history[symbol].append(atr)
+            
+            # Keep only last 1000 values
+            if len(self.volatility_history[symbol]) > 1000:
+                self.volatility_history[symbol] = self.volatility_history[symbol][-1000:]
+                
+            # Calculate current ATR percentile
+            current_percentile = sum(1 for x in self.volatility_history[symbol] if x <= atr) / len(self.volatility_history[symbol])
+            
+            # Adjust position size based on volatility
+            if current_percentile >= self.volatility_thresholds['high']:
+                return base_size * 0.5  # Reduce by 50% in high volatility
+            elif current_percentile >= self.volatility_thresholds['medium']:
+                return base_size * 0.75  # Reduce by 25% in medium volatility
+            else:
+                return base_size
+                
+        except Exception as e:
+            logging.error(f"Error calculating dynamic position size: {e}")
+            return base_size
+            
+    def check_circuit_breaker(self, symbol: str, current_price: float) -> bool:
+        """Check if circuit breaker should be triggered"""
+        try:
+            if symbol not in self.price_history:
+                self.price_history[symbol] = []
+                
+            # Add current price to history
+            self.price_history[symbol].append((time.time(), current_price))
+            
+            # Keep only last 60 seconds of data
+            current_time = time.time()
+            self.price_history[symbol] = [(t, p) for t, p in self.price_history[symbol] if current_time - t <= 60]
+            
+            if len(self.price_history[symbol]) < 2:
+                return False
+                
+            # Calculate maximum price change in last minute
+            max_price = max(p for _, p in self.price_history[symbol])
+            min_price = min(p for _, p in self.price_history[symbol])
+            price_change = (max_price - min_price) / min_price
+            
+            return price_change >= self.circuit_breaker_threshold
+            
+        except Exception as e:
+            logging.error(f"Error checking circuit breaker: {e}")
+            return False
+            
+    def run_monte_carlo_simulation(self, symbol: str, current_price: float, volatility: float) -> Dict:
+        """Run Monte Carlo simulation to estimate risk of ruin"""
+        try:
+            current_time = time.time()
+            
+            # Check if we need to run simulation
+            if (self.last_simulation_time and 
+                current_time - self.last_simulation_time < self.simulation_interval and
+                symbol in self.simulation_results):
+                return self.simulation_results[symbol]
+                
+            # Parameters for simulation
+            initial_balance = mt5.account_info().balance
+            position_size = initial_balance * 0.01  # 1% risk per trade
+            num_trades = 100  # Simulate 100 trades
+            win_rate = 0.55  # Assume 55% win rate
+            risk_reward = 2.0  # Assume 1:2 risk-reward ratio
+            
+            # Run simulations
+            results = {
+                'ruin_probability': 0.0,
+                'max_drawdown': 0.0,
+                'expected_return': 0.0,
+                'sharpe_ratio': 0.0
+            }
+            
+            final_balances = []
+            max_drawdowns = []
+            
+            for _ in range(self.monte_carlo_simulations):
+                balance = initial_balance
+                peak_balance = initial_balance
+                max_drawdown = 0.0
+                
+                for _ in range(num_trades):
+                    # Simulate trade outcome
+                    if random.random() < win_rate:
+                        # Winning trade
+                        balance += position_size * risk_reward
+                    else:
+                        # Losing trade
+                        balance -= position_size
+                        
+                    # Update peak and drawdown
+                    peak_balance = max(peak_balance, balance)
+                    current_drawdown = (peak_balance - balance) / peak_balance
+                    max_drawdown = max(max_drawdown, current_drawdown)
+                    
+                final_balances.append(balance)
+                max_drawdowns.append(max_drawdown)
+                
+            # Calculate statistics
+            results['ruin_probability'] = sum(1 for b in final_balances if b <= initial_balance * 0.5) / self.monte_carlo_simulations
+            results['max_drawdown'] = sum(max_drawdowns) / self.monte_carlo_simulations
+            results['expected_return'] = (sum(final_balances) / self.monte_carlo_simulations - initial_balance) / initial_balance
+            
+            # Calculate Sharpe ratio
+            returns = [(b - initial_balance) / initial_balance for b in final_balances]
+            avg_return = sum(returns) / len(returns)
+            std_return = (sum((r - avg_return) ** 2 for r in returns) / len(returns)) ** 0.5
+            results['sharpe_ratio'] = avg_return / std_return if std_return != 0 else 0
+            
+            # Cache results
+            self.simulation_results[symbol] = results
+            self.last_simulation_time = current_time
+            
+            return results
+            
+        except Exception as e:
+            logging.error(f"Error running Monte Carlo simulation: {e}")
+            return {
+                'ruin_probability': 0.0,
+                'max_drawdown': 0.0,
+                'expected_return': 0.0,
+                'sharpe_ratio': 0.0
+            }
+            
+    def adjust_risk_parameters(self, symbol: str, simulation_results: Dict) -> Dict:
+        """Adjust risk parameters based on simulation results"""
+        try:
+            risk_adjustments = {
+                'position_size_multiplier': 1.0,
+                'stop_loss_multiplier': 1.0,
+                'take_profit_multiplier': 1.0
+            }
+            
+            # Adjust based on ruin probability
+            if simulation_results['ruin_probability'] > 0.1:  # 10% ruin probability
+                risk_adjustments['position_size_multiplier'] *= 0.5
+                risk_adjustments['stop_loss_multiplier'] *= 0.8
+                risk_adjustments['take_profit_multiplier'] *= 1.2
+            elif simulation_results['ruin_probability'] > 0.05:  # 5% ruin probability
+                risk_adjustments['position_size_multiplier'] *= 0.75
+                risk_adjustments['stop_loss_multiplier'] *= 0.9
+                risk_adjustments['take_profit_multiplier'] *= 1.1
+                
+            # Adjust based on max drawdown
+            if simulation_results['max_drawdown'] > 0.2:  # 20% max drawdown
+                risk_adjustments['position_size_multiplier'] *= 0.6
+                risk_adjustments['stop_loss_multiplier'] *= 0.7
+            elif simulation_results['max_drawdown'] > 0.1:  # 10% max drawdown
+                risk_adjustments['position_size_multiplier'] *= 0.8
+                risk_adjustments['stop_loss_multiplier'] *= 0.85
+                
+            # Adjust based on Sharpe ratio
+            if simulation_results['sharpe_ratio'] < 0.5:
+                risk_adjustments['position_size_multiplier'] *= 0.7
+            elif simulation_results['sharpe_ratio'] > 2.0:
+                risk_adjustments['position_size_multiplier'] *= 1.2
+                
+            return risk_adjustments
+            
+        except Exception as e:
+            logging.error(f"Error adjusting risk parameters: {e}")
+            return {
+                'position_size_multiplier': 1.0,
+                'stop_loss_multiplier': 1.0,
+                'take_profit_multiplier': 1.0
+            }
+
 class StrategyManager:
     def __init__(self):
         self.strategies = {
@@ -818,1295 +1300,164 @@ class StrategyManager:
                 self.strategy_weights['trend_following'] = 0.3
                 self.strategy_weights['mean_reversion'] = 0.2
                 self.strategy_weights['scalping'] = 0.1
-            elif abs(rsi - 50) < 10:  # Range-bound market
+            elif rsi < 30 or rsi > 70:  # Extreme RSI
                 self.strategy_weights['mean_reversion'] = 0.4
-                self.strategy_weights['scalping'] = 0.3
-                self.strategy_weights['trend_following'] = 0.2
-                self.strategy_weights['breakout'] = 0.1
-            else:  # Normal conditions
-                self.strategy_weights = {
-                    'trend_following': 0.4,
-                    'mean_reversion': 0.3,
-                    'breakout': 0.2,
-                    'scalping': 0.1
-                }
-            
-            # Select strategy based on weights
-            strategies = list(self.strategy_weights.keys())
-            weights = list(self.strategy_weights.values())
-            self.current_strategy = np.random.choice(strategies, p=weights)
-            
+                self.strategy_weights['trend_following'] = 0.3
+                self.strategy_weights['breakout'] = 0.2
+                self.strategy_weights['scalping'] = 0.1
+            else:  # Normal market conditions
+                self.strategy_weights['trend_following'] = 0.4
+                self.strategy_weights['mean_reversion'] = 0.3
+                self.strategy_weights['breakout'] = 0.2
+                self.strategy_weights['scalping'] = 0.1
+                
+            # Select strategy based on highest weight
+            self.current_strategy = max(self.strategy_weights.items(), key=lambda x: x[1])[0]
             return self.current_strategy
             
         except Exception as e:
             logging.error(f"Error determining strategy: {e}")
-            return 'trend_following'
+            return 'trend_following'  # Default to trend following on error
             
-    def check_multi_timeframe_confirmation(self, symbol: str, timeframe: str) -> bool:
-        """Check if signals are confirmed across multiple timeframes"""
+    def _trend_following_strategy(self, df: pd.DataFrame) -> Optional[Dict]:
+        """Trend following strategy implementation"""
         try:
-            # Get data for different timeframes
-            timeframes = {
-                'M5': mt5.TIMEFRAME_M5,
-                'M15': mt5.TIMEFRAME_M15,
-                'H1': mt5.TIMEFRAME_H1,
-                'H4': mt5.TIMEFRAME_H4
-            }
-            
-            signals = []
-            for tf, mt5_tf in timeframes.items():
-                rates = mt5.copy_rates_from_pos(symbol, mt5_tf, 0, 100)
-                if rates is None:
-                    continue
-                    
-                df = pd.DataFrame(rates)
-                df['time'] = pd.to_datetime(df['time'], unit='s')
-                df.set_index('time', inplace=True)
+            # Check for trend conditions
+            if df['adx'].iloc[-1] < 25:  # Weak trend
+                return None
                 
-                # Calculate indicators
-                df = self._calculate_indicators(df)
+            # Determine trend direction
+            if df['ema_20'].iloc[-1] > df['ema_50'].iloc[-1]:  # Uptrend
+                return {'direction': 'buy', 'confidence': df['adx'].iloc[-1] / 100}
+            else:  # Downtrend
+                return {'direction': 'sell', 'confidence': df['adx'].iloc[-1] / 100}
                 
-                # Get signal from current strategy
-                signal = self.strategies[self.current_strategy](df)
-                signals.append(signal)
-            
-            # Check if signals are aligned
-            if len(signals) < 2:
-                return False
-                
-            # Count positive and negative signals
-            positive_signals = sum(1 for s in signals if s > 0)
-            negative_signals = sum(1 for s in signals if s < 0)
-            
-            # Require majority agreement
-            return positive_signals > len(signals)/2 or negative_signals > len(signals)/2
-            
-        except Exception as e:
-            logging.error(f"Error checking multi-timeframe confirmation: {e}")
-            return False
-            
-    def _calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate basic indicators for strategy analysis"""
-        try:
-            # Basic price indicators
-            df['ema_9'] = ta.trend.ema_indicator(df['close'], window=9)
-            df['ema_21'] = ta.trend.ema_indicator(df['close'], window=21)
-            df['ema_50'] = ta.trend.ema_indicator(df['close'], window=50)
-            
-            # Volatility indicators
-            df['atr'] = ta.volatility.average_true_range(
-                high=df['high'],
-                low=df['low'],
-                close=df['close'],
-                window=14
-            )
-            
-            # RSI
-            df['rsi'] = ta.momentum.rsi(df['close'], window=14)
-            
-            # ADX
-            df['adx'] = ta.trend.adx(
-                high=df['high'],
-                low=df['low'],
-                close=df['close'],
-                window=14
-            )
-            
-            return df
-            
-        except Exception as e:
-            logging.error(f"Error calculating indicators: {e}")
-            return df
-            
-    def _trend_following_strategy(self, df: pd.DataFrame) -> float:
-        """Trend following strategy using EMAs and ADX"""
-        try:
-            # Get latest values
-            ema_9 = df['ema_9'].iloc[-1]
-            ema_21 = df['ema_21'].iloc[-1]
-            ema_50 = df['ema_50'].iloc[-1]
-            adx = df['adx'].iloc[-1]
-            
-            # Check trend strength
-            if adx < 25:
-                return 0
-                
-            # Check trend direction
-            if ema_9 > ema_21 and ema_21 > ema_50:
-                return 1
-            elif ema_9 < ema_21 and ema_21 < ema_50:
-                return -1
-                
-            return 0
-            
         except Exception as e:
             logging.error(f"Error in trend following strategy: {e}")
-            return 0
+            return None
             
-    def _mean_reversion_strategy(self, df: pd.DataFrame) -> float:
-        """Mean reversion strategy using RSI and Bollinger Bands"""
+    def _mean_reversion_strategy(self, df: pd.DataFrame) -> Optional[Dict]:
+        """Mean reversion strategy implementation"""
         try:
-            # Get latest values
-            rsi = df['rsi'].iloc[-1]
-            
-            # Check for required Bollinger Band columns
-            if 'bb_middle' not in df.columns or 'bb_upper' not in df.columns:
-                return 0
-                
-            bb_position = (df['close'].iloc[-1] - df['bb_middle'].iloc[-1]) / (df['bb_upper'].iloc[-1] - df['bb_middle'].iloc[-1])
-            
-            # Check for oversold conditions
-            if rsi < 30 and bb_position < -0.5:
-                return 1
-            # Check for overbought conditions
-            elif rsi > 70 and bb_position > 0.5:
-                return -1
-                
-            return 0
+            # Check for mean reversion conditions
+            if df['rsi'].iloc[-1] < 30:  # Oversold
+                return {'direction': 'buy', 'confidence': (30 - df['rsi'].iloc[-1]) / 30}
+            elif df['rsi'].iloc[-1] > 70:  # Overbought
+                return {'direction': 'sell', 'confidence': (df['rsi'].iloc[-1] - 70) / 30}
+            return None
             
         except Exception as e:
             logging.error(f"Error in mean reversion strategy: {e}")
-            return 0
+            return None
             
-    def _breakout_strategy(self, df: pd.DataFrame) -> float:
-        """Breakout strategy using ATR and price action"""
+    def _breakout_strategy(self, df: pd.DataFrame) -> Optional[Dict]:
+        """Breakout strategy implementation"""
         try:
-            # Get latest values
-            atr = df['atr'].iloc[-1]
-            current_price = df['close'].iloc[-1]
-            prev_high = df['high'].iloc[-2]
-            prev_low = df['low'].iloc[-2]
-            
-            # Check for breakout
-            if current_price > prev_high + atr:
-                return 1
-            elif current_price < prev_low - atr:
-                return -1
-                
-            return 0
+            # Check for breakout conditions
+            if df['close'].iloc[-1] > df['high'].iloc[-2]:  # Bullish breakout
+                return {'direction': 'buy', 'confidence': 0.7}
+            elif df['close'].iloc[-1] < df['low'].iloc[-2]:  # Bearish breakout
+                return {'direction': 'sell', 'confidence': 0.7}
+            return None
             
         except Exception as e:
             logging.error(f"Error in breakout strategy: {e}")
-            return 0
+            return None
             
-    def _scalping_strategy(self, df: pd.DataFrame) -> float:
-        """Scalping strategy using short-term indicators"""
+    def _scalping_strategy(self, df: pd.DataFrame) -> Optional[Dict]:
+        """Scalping strategy implementation"""
         try:
-            # Get latest values
-            rsi = df['rsi'].iloc[-1]
-            stoch_k = df['stoch_k'].iloc[-1]
-            stoch_d = df['stoch_d'].iloc[-1]
-            
-            # Check for oversold conditions
-            if rsi < 30 and stoch_k < 20 and stoch_d < 20:
-                return 1
-            # Check for overbought conditions
-            elif rsi > 70 and stoch_k > 80 and stoch_d > 80:
-                return -1
+            # Check for scalping conditions
+            if df['atr'].iloc[-1] / df['close'].iloc[-1] < 0.001:  # Low volatility
+                return None
                 
-            return 0
+            # Use Bollinger Bands for scalping
+            if df['close'].iloc[-1] < df['bb_lower'].iloc[-1]:  # Buy signal
+                return {'direction': 'buy', 'confidence': 0.6}
+            elif df['close'].iloc[-1] > df['bb_upper'].iloc[-1]:  # Sell signal
+                return {'direction': 'sell', 'confidence': 0.6}
+            return None
             
         except Exception as e:
             logging.error(f"Error in scalping strategy: {e}")
-            return 0
+            return None
 
 class AdvancedPremiumBot:
     def __init__(self):
-        # Load environment variables
-        load_dotenv()
-        
-        # MT5 credentials
-        try:
-            self.account = int(os.getenv('MT5_ACCOUNT'))
-            self.password = os.getenv('MT5_PASSWORD')
-            self.server = os.getenv('MT5_SERVER')
-            
-            if not all([self.account, self.password, self.server]):
-                raise ValueError("Missing MT5 credentials in .env file")
-        except ValueError as e:
-            logging.error(f"Error loading MT5 credentials: {e}")
-            raise
-            
-        # Telegram credentials
-        self.telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
-        self.telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
-        
-        # Trading parameters
-        self.symbols = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD"]
-        self.timeframes = {
-            "M5": mt5.TIMEFRAME_M5,
-            "M15": mt5.TIMEFRAME_M15,
-            "H1": mt5.TIMEFRAME_H1,
-            "H4": mt5.TIMEFRAME_H4
+        self.symbols = []
+        self.positions = {}
+        self.websocket_connections = {}
+        self.tick_data = {}
+        self.quote_history = {}
+        self.order_history = []
+        self.performance_metrics = {}
+        self.risk_parameters = {
+            'max_position_size': 10.0,
+            'max_daily_trades': 50,
+            'max_drawdown_percent': 5.0,
+            'risk_per_trade_percent': 1.0
         }
-        
-        # Initialize components
-        self.strategy_manager = StrategyManager()
-        self.risk_manager = RiskManager()
-        self.lstm_predictor = LSTMPredictor(
-            account=self.account, 
-            password=self.password, 
-            server=self.server
-        )  # Correct instance name
-        self.sentiment_analyzer = NewsSentimentAnalyzer()
-        self.economic_calendar = EconomicCalendar()
-        self.correlation_analyzer = MarketCorrelationAnalyzer()
-        
-        # Initialize state variables
-        self.initialized = False
-        self.running = True
-        self.data_queue = queue.Queue()
-        self.trade_history = []
-        self.performance_stats = {
-            'total_trades': 0,
-            'winning_trades': 0,
-            'losing_trades': 0,
-            'total_profit': 0.0,
-            'win_rate': 0.0,
-            'average_profit': 0.0,
-            'average_loss': 0.0,
-            'profit_factor': 0.0,
-            'max_drawdown': 0.0,
-            'current_drawdown': 0.0,
-            'risk_reward_ratio': 0.0,
-            'daily_trades': 0,
-            'daily_profit': 0.0,
-            'last_trade_date': None
-        }
-        
-        # Initialize market conditions
-        self.market_conditions = {}
-        self.correlation_matrix = {}
-        
-    def check_trade_conditions(self, df: pd.DataFrame, symbol: str) -> Tuple[bool, str, float, float, float]:
-        """Check trading conditions using multiple strategies"""
-        try:
-            if len(df) < 200:  # Need enough data for indicators
-                return False, "", 0, 0, 0
-                
-            # Get latest data
-            current_price = df['close'].iloc[-1]
-            current_atr = df['atr'].iloc[-1]
-            
-            # Determine strategy based on market conditions
-            strategy = self.strategy_manager.determine_strategy(df)
-            
-            # Check multi-timeframe confirmation
-            if not self.strategy_manager.check_multi_timeframe_confirmation(symbol, 'M15'):
-                logging.info(f"Multi-timeframe confirmation failed for {symbol}")
-                return False, "", 0, 0, 0
-                
-            # Get account info for position sizing
-            account_info = mt5.account_info()
-            if account_info is None:
-                logging.error("Failed to get account info")
-                return False, "", 0, 0, 0
-                
-            # Update market correlations
-            correlations = self.correlation_analyzer.update_correlations(self.symbols, mt5.TIMEFRAME_H1)
-            self.market_conditions['correlations'] = correlations
-            
-            # Check for hedging
-            if self.risk_manager.detect_hedging(symbol, correlations):
-                logging.info(f"Hedging detected for {symbol}, reducing position size")
-                return False, "", 0, 0, 0
-                
-            # Calculate position size using adaptive method
-            position_size = self.risk_manager.calculate_adaptive_position_size(
-                symbol=symbol,
-                current_price=current_price,
-                stop_loss=current_atr * 2,  # Using ATR for stop loss
-                account_balance=account_info.balance,
-                volatility=current_atr / current_price,
-                correlation_factor=1.0,  # Will be adjusted by risk manager
-                atr=current_atr
-            )
-            
-            # Check if position size is too small
-            if position_size < 0.01:  # Minimum 0.01 lots
-                logging.info(f"Position size too small for {symbol}")
-                return False, "", 0, 0, 0
-                
-            # Get signals based on strategy
-            if strategy == 'trend_following':
-                signal = self._get_trend_following_signal(df)
-            elif strategy == 'mean_reversion':
-                signal = self._get_mean_reversion_signal(df)
-            elif strategy == 'breakout':
-                signal = self._get_breakout_signal(df)
-            elif strategy == 'scalping':
-                signal = self._get_scalping_signal(df)
-            else:
-                signal = 0
-                
-            # Determine trade direction and calculate stop loss/take profit
-            if signal > 0.5:  # Strong buy signal
-                stop_loss = current_price - current_atr * 2
-                take_profit = current_price + current_atr * 4
-                return True, "buy", stop_loss, take_profit, position_size
-            elif signal < -0.5:  # Strong sell signal
-                stop_loss = current_price + current_atr * 2
-                take_profit = current_price - current_atr * 4
-                return True, "sell", stop_loss, take_profit, position_size
-                
-            return False, "", 0, 0, 0
-            
-        except Exception as e:
-            logging.error(f"Error checking trade conditions: {e}")
-            return False, "", 0, 0, 0
-            
-    def _get_trend_following_signal(self, df: pd.DataFrame) -> float:
-        """Get trend following signal"""
-        try:
-            # Calculate trend indicators
-            ema_9 = df['ema_9'].iloc[-1]
-            ema_21 = df['ema_21'].iloc[-1]
-            ema_50 = df['ema_50'].iloc[-1]
-            adx = df['adx'].iloc[-1]
-            
-            # Check trend strength
-            if adx < 25:
-                return 0
-                
-            # Check trend direction
-            if ema_9 > ema_21 and ema_21 > ema_50:
-                return 1
-            elif ema_9 < ema_21 and ema_21 < ema_50:
-                return -1
-                
-            return 0
-            
-        except Exception as e:
-            logging.error(f"Error getting trend following signal: {e}")
-            return 0
-            
-    def _get_mean_reversion_signal(self, df: pd.DataFrame) -> float:
-        """Get mean reversion signal"""
-        try:
-            # Calculate mean reversion indicators
-            rsi = df['rsi'].iloc[-1]
-            bb_position = (df['close'].iloc[-1] - df['bb_middle'].iloc[-1]) / (df['bb_upper'].iloc[-1] - df['bb_middle'].iloc[-1])
-            
-            # Check for oversold conditions
-            if rsi < 30 and bb_position < -0.5:
-                return 1
-            # Check for overbought conditions
-            elif rsi > 70 and bb_position > 0.5:
-                return -1
-                
-            return 0
-            
-        except Exception as e:
-            logging.error(f"Error getting mean reversion signal: {e}")
-            return 0
-            
-    def manage_open_positions(self):
-        """Manage open positions and update trade history"""
-        try:
-            # Update trailing stops
-            self.risk_manager.update_trailing_stops()
-            
-            # Get all open positions
-            positions = mt5.positions_get()
-            if positions is None:
-                return
-                
-            # Get account info
-            account_info = mt5.account_info()
-            if account_info is None:
-                return
-                
-            # Update trade history for closed positions
-            for position in positions:
-                # Check if this position is in our trade history
-                for trade in self.trade_history:
-                    if (trade['symbol'] == position.symbol and 
-                        trade['type'] == ('BUY' if position.type == mt5.POSITION_TYPE_BUY else 'SELL') and
-                        trade['profit'] == 0):  # Only update if profit hasn't been recorded yet
-                        
-                        # Update trade record with final profit
-                        trade['profit'] = position.profit
-                        trade['close_time'] = datetime.now().timestamp()
-                        trade['close_price'] = position.price_current
-                        trade['balance'] = account_info.balance
-                        
-                        # Send Telegram notification
-                        message = (
-                            f"🔔 Position Closed\n\n"
-                            f"Symbol: {position.symbol}\n"
-                            f"Type: {trade['type']}\n"
-                            f"Profit: {position.profit:.2f}\n"
-                            f"Balance: {account_info.balance:.2f}"
-                        )
-                        asyncio.create_task(self.send_telegram_message(message))
-                        
-                        break
-                        
-        except Exception as e:
-            logging.error(f"Error managing positions: {e}")
-            
-    def place_order(self, symbol: str, order_type: str, price: float, sl: float, tp: float, position_size: float) -> bool:
-        """Place a new order with risk management"""
-        try:
-            # Get symbol info
-            symbol_info = mt5.symbol_info(symbol)
-            if symbol_info is None:
-                logging.error(f"Failed to get symbol info for {symbol}")
-                return False
-                
-            # Validate parameters
-            if position_size <= 0:
-                logging.error(f"Invalid position size: {position_size}")
-                return False
-                
-            if sl <= 0 or tp <= 0:
-                logging.error(f"Invalid stop loss or take profit: SL={sl}, TP={tp}")
-                return False
-                
-            # Prepare order request
-            request = {
-                "action": mt5.TRADE_ACTION_DEAL,
-                "symbol": symbol,
-                "volume": position_size,
-                "type": mt5.ORDER_TYPE_BUY if order_type == "buy" else mt5.ORDER_TYPE_SELL,
-                "price": price,
-                "sl": sl,
-                "tp": tp,
-                "deviation": 10,
-                "magic": 123456,
-                "comment": "Advanced Premium Bot",
-                "type_time": mt5.ORDER_TIME_GTC,
-                "type_filling": mt5.ORDER_FILLING_IOC,
-            }
-            
-            # Send order
-            result = mt5.order_send(request)
-            if result.retcode != mt5.TRADE_RETCODE_DONE:
-                logging.error(f"Order failed: {result.comment}")
-                return False
-                
-            # Record trade in history
-            trade_record = {
-                'time': datetime.now().timestamp(),
-                'symbol': symbol,
-                'type': order_type,
-                'price': price,
-                'sl': sl,
-                'tp': tp,
-                'lot_size': position_size,
-                'profit': 0,
-                'balance': mt5.account_info().balance
-            }
-            
-            # Update risk manager
-            self.risk_manager.update_performance_history(trade_record)
-            
-            # Send Telegram notification
-            message = (
-                f"🔔 New Trade\n\n"
-                f"Symbol: {symbol}\n"
-                f"Type: {order_type.upper()}\n"
-                f"Price: {price:.5f}\n"
-                f"Stop Loss: {sl:.5f}\n"
-                f"Take Profit: {tp:.5f}\n"
-                f"Position Size: {position_size:.2f} lots"
-            )
-            asyncio.create_task(self.send_telegram_message(message))
-            
-            logging.info(f"Order placed successfully: {symbol} {order_type} at {price}")
-            return True
-            
-        except Exception as e:
-            logging.error(f"Error placing order: {e}")
-            return False
-        
-    def data_collector(self):
-        """Collect market data for all symbols and timeframes"""
-        while self.running:
-            try:
-                for symbol in self.symbols:
-                    # Verify symbol exists and is available for trading
-                    symbol_info = mt5.symbol_info(symbol)
-                    if symbol_info is None:
-                        logging.error(f"Symbol {symbol} not found")
-                        continue
-                        
-                    if not symbol_info.visible:
-                        if not mt5.symbol_select(symbol, True):
-                            logging.error(f"Failed to select symbol {symbol}")
-                            continue
-                            
-                    for timeframe_name, timeframe in self.timeframes.items():
-                        try:
-                            # Request data with volume
-                            rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, 1000)
-                            if rates is None:
-                                logging.error(f"Failed to get rates for {symbol} on {timeframe_name}")
-                                continue
-                                
-                            if len(rates) < 200:  # Minimum required data points
-                                logging.warning(f"Insufficient data for {symbol} on {timeframe_name}")
-                                continue
-                                
-                            # Convert to DataFrame and calculate indicators
-                            df = pd.DataFrame(rates)
-                            df['time'] = pd.to_datetime(df['time'], unit='s')
-                            df.set_index('time', inplace=True)
-                            
-                            # Add volume column if it doesn't exist
-                            if 'volume' not in df.columns:
-                                df['volume'] = 0
-                                
-                            # Calculate all required indicators
-                            df = self.calculate_advanced_indicators(df)
-                            
-                            # Verify required columns exist
-                            required_columns = ['close', 'volume', 'rsi', 'macd']
-                            if not all(col in df.columns for col in required_columns):
-                                missing_columns = [col for col in required_columns if col not in df.columns]
-                                logging.error(f"Missing required columns for {symbol} on {timeframe_name}: {missing_columns}")
-                                continue
-                                
-                            # Validate data
-                            if df.isnull().values.any():
-                                logging.warning(f"NaN values detected in data for {symbol} on {timeframe_name}")
-                                continue
-                                
-                            # Store in queue
-                            self.data_queue.put((symbol, timeframe_name, df))
-                            
-                        except Exception as e:
-                            logging.error(f"Error processing {symbol} on {timeframe_name}: {e}")
-                            continue
-                            
-                time.sleep(1)
-                
-            except Exception as e:
-                logging.error(f"Error in data collector: {e}")
-                self.running = False
-        
-    def update_performance_stats(self):
-        """Update performance statistics based on trade history"""
-        try:
-            if not self.trade_history:
-                return
-                
-            # Get account info
-            account_info = mt5.account_info()
-            if account_info is None:
-                logging.error("Failed to get account info")
-                return
-                
-            # Update basic stats
-            self.performance_stats['balance'] = account_info.balance
-            self.performance_stats['equity'] = account_info.equity
-            self.performance_stats['margin'] = account_info.margin
-            self.performance_stats['free_margin'] = account_info.margin_free
-            
-            # Calculate trade statistics
-            total_trades = len(self.trade_history)
-            winning_trades = sum(1 for trade in self.trade_history if trade.get('profit', 0) > 0)
-            losing_trades = total_trades - winning_trades
-            
-            total_profit = sum(trade.get('profit', 0) for trade in self.trade_history)
-            winning_profit = sum(trade.get('profit', 0) for trade in self.trade_history if trade.get('profit', 0) > 0)
-            losing_profit = sum(trade.get('profit', 0) for trade in self.trade_history if trade.get('profit', 0) < 0)
-            
-            # Update performance stats
-            self.performance_stats['total_trades'] = total_trades
-            self.performance_stats['winning_trades'] = winning_trades
-            self.performance_stats['losing_trades'] = losing_trades
-            self.performance_stats['total_profit'] = total_profit
-            
-            if total_trades > 0:
-                self.performance_stats['win_rate'] = (winning_trades / total_trades) * 100
-                self.performance_stats['average_profit'] = winning_profit / winning_trades if winning_trades > 0 else 0
-                self.performance_stats['average_loss'] = losing_profit / losing_trades if losing_trades > 0 else 0
-                self.performance_stats['profit_factor'] = abs(winning_profit / losing_profit) if losing_profit != 0 else float('inf')
-            
-            # Calculate drawdown
-            if self.trade_history:
-                peak = self.trade_history[0]['balance']
-                max_drawdown = 0
-                current_drawdown = 0
-                
-                for trade in self.trade_history:
-                    if trade['balance'] > peak:
-                        peak = trade['balance']
-                    drawdown = (peak - trade['balance']) / peak * 100
-                    max_drawdown = max(max_drawdown, drawdown)
-                    current_drawdown = drawdown
-                
-                self.performance_stats['max_drawdown'] = max_drawdown
-                self.performance_stats['current_drawdown'] = current_drawdown
-            
-            # Calculate daily statistics
-            today = datetime.now().date()
-            daily_trades = sum(1 for trade in self.trade_history 
-                             if datetime.fromtimestamp(trade['time']).date() == today)
-            daily_profit = sum(trade['profit'] for trade in self.trade_history 
-                             if datetime.fromtimestamp(trade['time']).date() == today)
-            
-            self.performance_stats['daily_trades'] = daily_trades
-            self.performance_stats['daily_profit'] = daily_profit
-            self.performance_stats['last_trade_date'] = datetime.fromtimestamp(
-                self.trade_history[-1]['time']).strftime('%Y-%m-%d %H:%M:%S')
-            
-            # Calculate risk-reward ratio
-            if self.performance_stats['average_loss'] != 0:
-                self.performance_stats['risk_reward_ratio'] = abs(
-                    self.performance_stats['average_profit'] / self.performance_stats['average_loss']
-                )
-            
-            # Calculate additional metrics
-            if total_trades > 0:
-                # Average trade duration
-                trade_durations = []
-                for i in range(1, len(self.trade_history)):
-                    duration = self.trade_history[i]['time'] - self.trade_history[i-1]['time']
-                    trade_durations.append(duration)
-                self.performance_stats['average_trade_duration'] = sum(trade_durations) / len(trade_durations)
-                
-                # Profit per trade
-                self.performance_stats['profit_per_trade'] = total_profit / total_trades
-                
-                # Maximum consecutive wins/losses
-                consecutive_wins = 0
-                consecutive_losses = 0
-                max_consecutive_wins = 0
-                max_consecutive_losses = 0
-                
-                for trade in self.trade_history:
-                    if trade.get('profit', 0) > 0:
-                        consecutive_wins += 1
-                        consecutive_losses = 0
-                        max_consecutive_wins = max(max_consecutive_wins, consecutive_wins)
-                    else:
-                        consecutive_losses += 1
-                        consecutive_wins = 0
-                        max_consecutive_losses = max(max_consecutive_losses, consecutive_losses)
-                
-                self.performance_stats['max_consecutive_wins'] = max_consecutive_wins
-                self.performance_stats['max_consecutive_losses'] = max_consecutive_losses
-            
-            logging.info("Performance stats updated successfully")
-            
-        except Exception as e:
-            logging.error(f"Error updating performance stats: {e}")
-            
-    def check_health(self) -> bool:
-        """Check the health of the bot and its connections"""
-        try:
-            # Check MT5 connection
-            if not mt5.initialize():
-                logging.error("MT5 connection lost")
-                return False
-                
-            # Check account status
-            account_info = mt5.account_info()
-            if account_info is None:
-                logging.error("Failed to get account info")
-                return False
-                
-            # Check if trading is allowed
-            if not account_info.trade_allowed:
-                logging.error("Trading is not allowed")
-                return False
-                
-            # Check if we have sufficient margin
-            if account_info.margin_free < 100:
-                logging.error("Insufficient free margin")
-                return False
-                
-            # Check if we can get market data
-            for symbol in self.symbols:
-                tick = mt5.symbol_info_tick(symbol)
-                if tick is None:
-                    logging.error(f"Failed to get tick data for {symbol}")
-                    return False
-                    
-            # Check if we can get historical data
-            for symbol in self.symbols:
-                rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M1, 0, 1)
-                if rates is None:
-                    logging.error(f"Failed to get historical data for {symbol}")
-                    return False
-                    
-            return True
-            
-        except Exception as e:
-            logging.error(f"Health check failed: {e}")
-            return False
-            
-    async def monitor_health(self):
-        """Monitor bot health and send alerts"""
-        while self.running:
-            try:
-                if not self.check_health():
-                    message = (
-                        "⚠️ Bot Health Alert\n\n"
-                        "The bot has detected issues with its operation. "
-                        "Please check the logs for more details."
-                    )
-                    await self.send_telegram_message(message)
-                    
-                # Check for unusual market conditions
-                for symbol in self.symbols:
-                    tick = mt5.symbol_info_tick(symbol)
-                    if tick is None:
-                        continue
-                        
-                    # Check for unusually high spread
-                    if tick.ask - tick.bid > 0.0005:  # 5 pip spread
-                        message = (
-                            f"⚠️ High Spread Alert\n\n"
-                            f"Symbol: {symbol}\n"
-                            f"Spread: {(tick.ask - tick.bid) * 10000:.1f} pips"
-                        )
-                        await self.send_telegram_message(message)
-                        
-                    # Check for unusual price movement
-                    rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M1, 0, 2)
-                    if rates is not None and len(rates) >= 2:
-                        price_change = abs(rates[1]['close'] - rates[0]['close']) / rates[0]['close'] * 100
-                        if price_change > 0.5:  # 0.5% price change
-                            message = (
-                                f"⚠️ Unusual Price Movement\n\n"
-                                f"Symbol: {symbol}\n"
-                                f"Change: {price_change:.2f}%"
-                            )
-                            await self.send_telegram_message(message)
-                            
-                await asyncio.sleep(60)  # Check every minute
-                
-            except Exception as e:
-                logging.error(f"Error in health monitoring: {e}")
-                await asyncio.sleep(60)
-                
-    async def shutdown(self):
-        """Graceful shutdown of the bot"""
-        try:
-            logging.info("Initiating bot shutdown...")
-            self.running = False
-            
-            # Close all open positions
-            positions = mt5.positions_get()
-            if positions is not None:
-                for position in positions:
-                    try:
-                        request = {
-                            "action": mt5.TRADE_ACTION_DEAL,
-                            "symbol": position.symbol,
-                            "volume": position.volume,
-                            "type": mt5.ORDER_TYPE_SELL if position.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY,
-                            "position": position.ticket,
-                            "price": mt5.symbol_info_tick(position.symbol).bid if position.type == mt5.POSITION_TYPE_BUY else mt5.symbol_info_tick(position.symbol).ask,
-                            "deviation": 20,
-                            "magic": 234000,
-                            "comment": "shutdown",
-                            "type_time": mt5.ORDER_TIME_GTC,
-                            "type_filling": mt5.ORDER_FILLING_IOC,
-                        }
-                        result = mt5.order_send(request)
-                        if result.retcode != mt5.TRADE_RETCODE_DONE:
-                            logging.error(f"Failed to close position {position.ticket}: {result.comment}")
-                    except Exception as e:
-                        logging.error(f"Error closing position {position.ticket}: {e}")
-            
-            # Send final performance report
-            final_stats = (
-                f"📊 Final Performance Report:\n"
-                f"Total Trades: {self.performance_stats['total_trades']}\n"
-                f"Win Rate: {self.performance_stats['win_rate']:.2%}\n"
-                f"Total Profit: ${self.performance_stats['total_profit']:.2f}\n"
-                f"Max Drawdown: {self.performance_stats['max_drawdown']:.2f}%"
-            )
-            await self.send_telegram_message(final_stats)
-            
-            # Shutdown MT5
-            mt5.shutdown()
-            logging.info("Bot shutdown complete")
-            
-        except Exception as e:
-            logging.error(f"Error during shutdown: {e}")
-            
-    def save_state(self):
-        """Save bot state to file"""
-        try:
-            # Convert datetime objects to strings
-            state = {
-                'performance_stats': self.performance_stats.copy(),
-                'market_conditions': self.market_conditions.copy(),
-                'correlation_matrix': self.correlation_matrix.copy(),
-                'last_update': datetime.now().isoformat()
-            }
-            
-            # Convert any datetime objects in performance_stats to strings
-            if 'last_trade_date' in state['performance_stats']:
-                if isinstance(state['performance_stats']['last_trade_date'], datetime):
-                    state['performance_stats']['last_trade_date'] = state['performance_stats']['last_trade_date'].isoformat()
-            
-            with open('bot_state.json', 'w') as f:
-                json.dump(state, f, indent=4)
-                
-            logging.info("Bot state saved successfully")
-            
-        except Exception as e:
-            logging.error(f"Error saving bot state: {e}")
-            
-    def load_state(self):
-        """Load bot state from file"""
-        try:
-            if os.path.exists('bot_state.json'):
-                with open('bot_state.json', 'r') as f:
-                    state = json.load(f)
-                    
-                self.performance_stats = state.get('performance_stats', self.performance_stats)
-                self.market_conditions = state.get('market_conditions', {})
-                self.correlation_matrix = state.get('correlation_matrix', {})
-                
-                # Convert string dates back to datetime objects
-                if 'last_trade_date' in self.performance_stats:
-                    try:
-                        self.performance_stats['last_trade_date'] = datetime.fromisoformat(self.performance_stats['last_trade_date'])
-                    except (ValueError, TypeError):
-                        self.performance_stats['last_trade_date'] = None
-                
-                logging.info("Bot state loaded successfully")
-                
-        except Exception as e:
-            logging.error(f"Error loading bot state: {e}")
-            
-    async def run(self):
-        """Main bot loop"""
-        print("\n" + "="*50)
-        print("ADVANCED PREMIUM TRADING BOT STARTING")
-        print("="*50 + "\n")
-        
-        if not self.initialize():  # Add parentheses to call the method
-            return
-            
-        await self.initialize_telegram()
-        
-        # Load previous state
-        self.load_state()
-        
-        # Start data collector thread
-        data_thread = threading.Thread(target=self.data_collector)
-        data_thread.daemon = True
-        data_thread.start()
-        
-        # Start health monitoring
-        health_monitor = asyncio.create_task(self.monitor_health())
-        
-        try:
-            # Main trading loop
-            while self.running:
-                try:
-                    # Process market data
-                    while not self.data_queue.empty():
-                        try:
-                            symbol, timeframe, df = self.data_queue.get(timeout=1)
-                            
-                            # Validate data
-                            if df is None or len(df) < 200:
-                                logging.warning(f"Insufficient data for {symbol} on {timeframe}")
-                                continue
-                                
-                            # Check for NaN values
-                            if df.isnull().values.any():
-                                logging.warning(f"NaN values detected in data for {symbol} on {timeframe}")
-                                continue
-                                
-                            # Check trading conditions
-                            should_trade, order_type, sl, tp, position_size = self.check_trade_conditions(df, symbol)
-                            
-                            if should_trade:
-                                # Place order
-                                if self.place_order(symbol, order_type, df['close'].iloc[-1], sl, tp, position_size):
-                                    # Update statistics
-                                    self.performance_stats['total_trades'] += 1
-                                    if order_type == "buy":
-                                        self.performance_stats['winning_trades'] += 1
-                                    else:
-                                        self.performance_stats['losing_trades'] += 1
-                                        
-                        except queue.Empty:
-                            break
-                        except Exception as e:
-                            logging.error(f"Error processing data for {symbol}: {e}")
-                            continue
-                            
-                    # Manage open positions
-                    try:
-                        self.manage_open_positions()
-                    except Exception as e:
-                        logging.error(f"Error managing positions: {e}")
-                    
-                    # Update performance stats every 5 minutes
-                    if datetime.now().minute % 5 == 0:
-                        try:
-                            self.update_performance_stats()
-                            self.save_state()  # Save state periodically
-                            
-                            # Send performance update via Telegram
-                            stats_message = (
-                                f"📊 Performance Update:\n"
-                                f"Total Trades: {self.performance_stats['total_trades']}\n"
-                                f"Win Rate: {self.performance_stats['win_rate']:.2%}\n"
-                                f"Total Profit: ${self.performance_stats['total_profit']:.2f}\n"
-                                f"Current Drawdown: {self.performance_stats['current_drawdown']:.2f}%"
-                            )
-                            await self.send_telegram_message(stats_message)
-                        except Exception as e:
-                            logging.error(f"Error updating performance stats: {e}")
-                        
-                    await asyncio.sleep(1)
-                    
-                except asyncio.CancelledError:
-                    logging.info("Bot task cancelled")
-                    break
-                except Exception as e:
-                    logging.error(f"Error in main loop: {e}")
-                    # Attempt to recover
-                    try:
-                        # Check MT5 connection
-                        if not mt5.initialize():
-                            logging.error("MT5 connection lost. Attempting to reconnect...")
-                            if not self.initialize():
-                                logging.error("Failed to reconnect to MT5")
-                                break
-                    except Exception as reconnect_error:
-                        logging.error(f"Error during recovery attempt: {reconnect_error}")
-                        break
-                    await asyncio.sleep(5)
-                    
-        except KeyboardInterrupt:
-            print("\nShutting down bot...")
-        except Exception as e:
-            logging.error(f"Unexpected error in main loop: {e}")
-        finally:
-            # Cleanup
-            self.running = False
-            health_monitor.cancel()
-            try:
-                await health_monitor
-            except asyncio.CancelledError:
-                pass
-            await self.shutdown()
-            
-    def calculate_advanced_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate advanced technical indicators for trading strategies"""
-        try:
-            # Basic price indicators
-            df['ema_9'] = ta.trend.ema_indicator(df['close'], window=9)
-            df['ema_21'] = ta.trend.ema_indicator(df['close'], window=21)
-            df['ema_50'] = ta.trend.ema_indicator(df['close'], window=50)
-            
-            # Volatility indicators
-            df['atr'] = ta.volatility.average_true_range(
-                high=df['high'],
-                low=df['low'],
-                close=df['close'],
-                window=14
-            )
-            
-            # Bollinger Bands
-            bollinger = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2)
-            df['bb_upper'] = bollinger.bollinger_hband()
-            df['bb_middle'] = bollinger.bollinger_mavg()
-            df['bb_lower'] = bollinger.bollinger_lband()
-            
-            # RSI
-            df['rsi'] = ta.momentum.rsi(df['close'], window=14)
-            
-            # MACD
-            macd = ta.trend.MACD(df['close'])
-            df['macd'] = macd.macd()
-            df['macd_signal'] = macd.macd_signal()
-            df['macd_diff'] = macd.macd_diff()
-            
-            # ADX for trend strength
-            df['adx'] = ta.trend.adx(
-                high=df['high'],
-                low=df['low'],
-                close=df['close'],
-                window=14
-            )
-            
-            # Stochastic Oscillator
-            stoch = ta.momentum.StochasticOscillator(
-                high=df['high'],
-                low=df['low'],
-                close=df['close'],
-                window=14,
-                smooth_window=3
-            )
-            df['stoch_k'] = stoch.stoch()
-            df['stoch_d'] = stoch.stoch_signal()
-            
-            # Volume indicators
-            df['obv'] = ta.volume.on_balance_volume(df['close'], df['volume'])
-            df['mfi'] = ta.volume.money_flow_index(
-                high=df['high'],
-                low=df['low'],
-                close=df['close'],
-                volume=df['volume'],
-                window=14
-            )
-            
-            # Ichimoku Cloud
-            ichimoku = ta.trend.IchimokuIndicator(
-                high=df['high'],
-                low=df['low'],
-                window1=9,
-                window2=26,
-                window3=52
-            )
-            df['tenkan_sen'] = ichimoku.ichimoku_conversion_line()
-            df['kijun_sen'] = ichimoku.ichimoku_base_line()
-            df['senkou_span_a'] = ichimoku.ichimoku_a()
-            df['senkou_span_b'] = ichimoku.ichimoku_b()
-            
-            # Clean up NaN values
-            df.fillna(method='ffill', inplace=True)
-            df.fillna(method='bfill', inplace=True)
-            
-            # Verify required columns exist
-            required_columns = ['close', 'volume', 'rsi', 'macd']
-            if not all(col in df.columns for col in required_columns):
-                missing_columns = [col for col in required_columns if col not in df.columns]
-                logging.error(f"Missing required columns after calculating indicators: {missing_columns}")
-                raise ValueError(f"Missing required columns: {missing_columns}")
-            
-            return df
-            
-        except Exception as e:
-            logging.error(f"Error calculating indicators: {e}")
-            raise
+        self.telegram_bot = None
+        self.telegram_chat_id = None
+        self.running = False
+        self.last_state_save = datetime.now()
+        self.state_save_interval = 300  # 5 minutes
 
-    async def initialize_telegram(self):
-        """Initialize Telegram bot and set up command handlers"""
-        try:
-            if not self.telegram_token or not self.telegram_chat_id:
-                logging.warning("Telegram credentials not found. Telegram notifications disabled.")
-                return
-                
-            # Create application
-            self.telegram_app = Application.builder().token(self.telegram_token).build()
-            
-            # Add command handlers
-            self.telegram_app.add_handler(CommandHandler("start", self._telegram_start))
-            self.telegram_app.add_handler(CommandHandler("status", self._telegram_status))
-            self.telegram_app.add_handler(CommandHandler("stop", self._telegram_stop))
-            
-            # Start the bot
-            await self.telegram_app.initialize()
-            await self.telegram_app.start()
-            await self.telegram_app.updater.start_polling()
-            
-            # Send startup message
-            await self.send_telegram_message(
-                "🤖 Advanced Premium Trading Bot Started\n\n"
-                "Available commands:\n"
-                "/start - Start the bot\n"
-                "/status - Get current status\n"
-                "/stop - Stop the bot"
-            )
-            
-            logging.info("Telegram bot initialized successfully")
-            
-        except Exception as e:
-            logging.error(f"Error initializing Telegram bot: {e}")
-            
-    async def send_telegram_message(self, message: str):
-        """Send message to Telegram"""
-        try:
-            if not hasattr(self, 'telegram_app') or not self.telegram_chat_id:
-                return
-                
-            await self.telegram_app.bot.send_message(
-                chat_id=self.telegram_chat_id,
-                text=message,
-                parse_mode='HTML'
-            )
-            
-        except Exception as e:
-            logging.error(f"Error sending Telegram message: {e}")
-            
-    async def _telegram_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command"""
-        try:
-            await update.message.reply_text(
-                "🤖 Advanced Premium Trading Bot\n\n"
-                "Bot is running and monitoring the market.\n"
-                "Use /status to check current status."
-            )
-        except Exception as e:
-            logging.error(f"Error handling /start command: {e}")
-            
-    async def _telegram_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /status command"""
-        try:
-            # Get account info
-            account_info = mt5.account_info()
-            if account_info is None:
-                await update.message.reply_text("❌ Failed to get account information")
-                return
-                
-            # Format status message
-            status_message = (
-                "📊 Bot Status\n\n"
-                f"Account Balance: ${account_info.balance:.2f}\n"
-                f"Equity: ${account_info.equity:.2f}\n"
-                f"Free Margin: ${account_info.margin_free:.2f}\n\n"
-                f"Total Trades: {self.performance_stats['total_trades']}\n"
-                f"Win Rate: {self.performance_stats['win_rate']:.2%}\n"
-                f"Total Profit: ${self.performance_stats['total_profit']:.2f}\n"
-                f"Current Drawdown: {self.performance_stats['current_drawdown']:.2f}%"
-            )
-            
-            await update.message.reply_text(status_message)
-            
-        except Exception as e:
-            logging.error(f"Error handling /status command: {e}")
-            
-    async def _telegram_stop(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /stop command"""
-        try:
-            await update.message.reply_text("🛑 Stopping bot...")
-            self.running = False
-        except Exception as e:
-            logging.error(f"Error handling /stop command: {e}")
-
-    def initialize(self) -> bool:
-        """Initialize the bot and its components"""
-        try:
-            # Initialize MT5
-            if not mt5.initialize():
-                logging.error("Failed to initialize MT5")
-                return False
-                
-            # Login to MT5 account
-            if not mt5.login(self.account, password=self.password, server=self.server):
-                logging.error("Failed to login to MT5 account")
-                return False
-                
-            # Get account info
-            account_info = mt5.account_info()
-            if account_info is None:
-                logging.error("Failed to get account info")
-                return False
-                
-            logging.info(f"Connected to MT5 account: {account_info.login}")
-            
-            # Initialize LSTM predictor
-            if not self.lstm_predictor.initialize():  # This is already the predictor instance
-                logging.error("Failed to initialize LSTM predictor")
-                return False
-                
-            # Initialize sentiment analyzer
-            if not self.sentiment_analyzer.initialize():
-                logging.error("Failed to initialize sentiment analyzer")
-                return False
-                
-            # Initialize market correlation analyzer
-            self.correlation_analyzer.update_correlations(self.symbols, mt5.TIMEFRAME_H1)
-            
-            # Set initial equity
-            self.risk_manager.initial_equity = account_info.balance
-            self.risk_manager.max_equity = account_info.balance
-            
-            # Mark as initialized
-            self.initialized = True
-            
-            logging.info("Bot initialized successfully")
-            return True
-            
-        except Exception as e:
-            logging.error(f"Error initializing bot: {e}")
-            return False
-
-    def get_open_trades(self) -> List[Dict]:
-        """Get list of open trades"""
-        try:
-            positions = mt5.positions_get()
-            if positions is None:
-                return []
-                
-            open_trades = []
-            for position in positions:
-                trade = {
-                    'ticket': position.ticket,
-                    'symbol': position.symbol,
-                    'type': 'BUY' if position.type == mt5.POSITION_TYPE_BUY else 'SELL',
-                    'volume': position.volume,
-                    'open_price': position.price_open,
-                    'current_price': position.price_current,
-                    'sl': position.sl,
-                    'tp': position.tp,
-                    'profit': position.profit,
-                    'swap': position.swap,
-                    'time': datetime.fromtimestamp(position.time).isoformat()
-                }
-                open_trades.append(trade)
-                
-            return open_trades
-            
-        except Exception as e:
-            logging.error(f"Error getting open trades: {e}")
-            return []
-            
     def get_latest_prices(self) -> Dict[str, Dict]:
         """Get latest prices for all symbols"""
         try:
             prices = {}
             for symbol in self.symbols:
                 tick = mt5.symbol_info_tick(symbol)
-                if tick is None:
-                    continue
-                    
-                prices[symbol] = {
-                    'bid': tick.bid,
-                    'ask': tick.ask,
-                    'last': tick.last,
-                    'volume': tick.volume,
-                    'time': datetime.fromtimestamp(tick.time).isoformat()
-                }
-                
+                if tick is not None:
+                    prices[symbol] = {
+                        'bid': tick.bid,
+                        'ask': tick.ask,
+                        'last': tick.last,
+                        'volume': tick.volume,
+                        'time': datetime.fromtimestamp(tick.time).isoformat()
+                    }
             return prices
-            
         except Exception as e:
             logging.error(f"Error getting latest prices: {e}")
             return {}
-            
-    def get_trade_updates(self) -> List[Dict]:
-        """Get updates for closed trades"""
+
+    def shutdown(self):
+        """Gracefully shutdown the bot"""
         try:
-            updates = []
-            for trade in self.trade_history:
-                if trade.get('profit', 0) != 0 and not trade.get('notified', False):
-                    updates.append({
-                        'symbol': trade['symbol'],
-                        'type': trade['type'],
-                        'profit': trade['profit'],
-                        'time': datetime.fromtimestamp(trade['time']).isoformat()
-                    })
-                    trade['notified'] = True
-                    
-            return updates
+            self.running = False
+            
+            # Close all open positions
+            for symbol, position in self.positions.items():
+                try:
+                    self.close_position(symbol)
+                except Exception as e:
+                    logging.error(f"Error closing position for {symbol}: {e}")
+            
+            # Close all WebSocket connections
+            for symbol, ws in self.websocket_connections.items():
+                try:
+                    ws.close()
+                except Exception as e:
+                    logging.error(f"Error closing WebSocket for {symbol}: {e}")
+            
+            # Save final state
+            self.save_state()
+            
+            # Send shutdown notification
+            if self.telegram_bot and self.telegram_chat_id:
+                try:
+                    self.telegram_bot.send_message(
+                        self.telegram_chat_id,
+                        "Bot is shutting down. Final state saved."
+                    )
+                except Exception as e:
+                    logging.error(f"Error sending Telegram shutdown message: {e}")
+            
+            # Shutdown MT5
+            mt5.shutdown()
             
         except Exception as e:
-            logging.error(f"Error getting trade updates: {e}")
-            return []
-
-if __name__ == "__main__":
-    try:
-        bot = AdvancedPremiumBot()
-        asyncio.run(bot.run())
-    except KeyboardInterrupt:
-        print("\nBot stopped by user.")
-    except Exception as e:
-        print(f"\nUnexpected error: {e}")
-    finally:
-        print("\nBot shutdown complete.") 
+            logging.error(f"Error during shutdown: {e}")
+        finally:
+            print("\nBot shutdown complete.") 

@@ -93,10 +93,16 @@ class LSTMPredictor:
                 logging.info("Loaded existing ONNX model successfully")
                 return True
             else:
-                # If no model exists, create a dummy model for initial training
-                dummy_data = pd.DataFrame(np.zeros((1000, 4)), columns=['close', 'volume', 'rsi', 'macd'])
+                # Create realistic dummy data with proper indicators
+                dummy_data = pd.DataFrame({
+                    'close': np.random.normal(1.0, 0.01, 1000),  # Normal distribution around 1.0
+                    'volume': np.random.randint(100, 1000, 1000),  # Random volume between 100-1000
+                    'rsi': np.random.uniform(30, 70, 1000),  # RSI between 30-70 (typical range)
+                    'macd': np.random.normal(0.0, 0.1, 1000)  # MACD around 0 with small variance
+                })
+                
                 if self.train(dummy_data):
-                    logging.info("Created and trained initial LSTM model")
+                    logging.info("Created initial LSTM model with valid dummy data")
                     return True
                 else:
                     logging.error("Failed to create initial LSTM model")
@@ -205,15 +211,33 @@ class LSTMPredictor:
             return False
             
     def prepare_data(self, df: pd.DataFrame) -> np.ndarray:
-        """Prepare data for LSTM training"""
+        """Prepare data for LSTM training with automatic indicator generation"""
         try:
-            # Select relevant features
-            features = df[['close', 'volume', 'rsi', 'macd']].values
-            
-            # Scale the features
+            # Generate missing technical indicators if needed
+            if 'rsi' not in df.columns:
+                df['rsi'] = ta.momentum.rsi(df['close'], window=14)
+                
+            if 'macd' not in df.columns:
+                macd = ta.trend.MACD(df['close'])
+                df['macd'] = macd.macd()
+                
+            # Ensure volume exists (create dummy volume if missing)
+            if 'volume' not in df.columns:
+                df['volume'] = 0  # Or calculate from tick data
+                
+            # Verify required columns after generation
+            required_columns = ['close', 'volume', 'rsi', 'macd']
+            if not all(col in df.columns for col in required_columns):
+                missing = [col for col in required_columns if col not in df.columns]
+                logging.error(f"Still missing columns after generation: {missing}")
+                return None
+
+            # Select and scale features
+            features = df[required_columns].values
             scaled_features = self.scaler.fit_transform(features)
             
             return scaled_features
+            
         except Exception as e:
             logging.error(f"Error preparing data: {e}")
             return None
@@ -588,25 +612,9 @@ class RiskManager:
             logging.info(f"Calculated adaptive position size: {position_size:.2f} lots")
             return position_size
             
-            # Get recent performance
-            recent_trades = self.performance_history[-self.performance_window:]
-            win_rate = sum(1 for trade in recent_trades if trade['profit'] > 0) / len(recent_trades)
-            avg_profit = sum(trade['profit'] for trade in recent_trades) / len(recent_trades)
-            
-            # Adjust drawdown limit based on performance
-            if win_rate > 0.6 and avg_profit > 0:  # Good performance
-                new_limit = self.max_daily_drawdown * 1.2  # Increase limit by 20%
-            elif win_rate < 0.4 or avg_profit < 0:  # Poor performance
-                new_limit = self.max_daily_drawdown * 0.8  # Decrease limit by 20%
-            else:
-                new_limit = self.max_daily_drawdown
-                
-            # Ensure limit stays within bounds
-            return max(self.min_daily_drawdown, min(new_limit, self.max_daily_drawdown))
-            
         except Exception as e:
-            logging.error(f"Error calculating dynamic drawdown limit: {e}")
-            return self.max_daily_drawdown
+            logging.error(f"Error calculating adaptive position size: {e}")
+            return 0.0
             
     def check_max_open_risk(self, new_position_size: float, account_balance: float) -> bool:
         """Check if adding new position would exceed max open risk"""
@@ -983,6 +991,11 @@ class StrategyManager:
         try:
             # Get latest values
             rsi = df['rsi'].iloc[-1]
+            
+            # Check for required Bollinger Band columns
+            if 'bb_middle' not in df.columns or 'bb_upper' not in df.columns:
+                return 0
+                
             bb_position = (df['close'].iloc[-1] - df['bb_middle'].iloc[-1]) / (df['bb_upper'].iloc[-1] - df['bb_middle'].iloc[-1])
             
             # Check for oversold conditions
@@ -1156,8 +1169,14 @@ class AdvancedPremiumBot:
             # Get signals based on strategy
             if strategy == 'trend_following':
                 signal = self._get_trend_following_signal(df)
-            else:
+            elif strategy == 'mean_reversion':
                 signal = self._get_mean_reversion_signal(df)
+            elif strategy == 'breakout':
+                signal = self._get_breakout_signal(df)
+            elif strategy == 'scalping':
+                signal = self._get_scalping_signal(df)
+            else:
+                signal = 0
                 
             # Determine trade direction and calculate stop loss/take profit
             if signal > 0.5:  # Strong buy signal
@@ -1379,6 +1398,13 @@ class AdvancedPremiumBot:
                             # Calculate indicators
                             df = self.calculate_advanced_indicators(df)
                             
+                            # Ensure all required columns exist
+                            required_columns = ['close', 'volume', 'rsi', 'macd']
+                            if not all(col in df.columns for col in required_columns):
+                                missing_columns = [col for col in required_columns if col not in df.columns]
+                                logging.error(f"Missing required columns for {symbol} on {timeframe_name}: {missing_columns}")
+                                continue
+                                
                             # Validate data
                             if df.isnull().values.any():
                                 logging.warning(f"NaN values detected in data for {symbol} on {timeframe_name}")
@@ -1391,12 +1417,12 @@ class AdvancedPremiumBot:
                             logging.error(f"Error processing {symbol} on {timeframe_name}: {e}")
                             continue
                             
-                time.sleep(1)  # Update every second
+                time.sleep(1)
                 
             except Exception as e:
                 logging.error(f"Error in data collector: {e}")
-                time.sleep(5)  # Wait longer on error
-                
+                self.running = False
+        
     def update_performance_stats(self):
         """Update performance statistics based on trade history"""
         try:
@@ -1695,7 +1721,7 @@ class AdvancedPremiumBot:
         print("ADVANCED PREMIUM TRADING BOT STARTING")
         print("="*50 + "\n")
         
-        if not self.initialize():
+        if not self.initialize():  # Add parentheses to call the method
             return
             
         await self.initialize_telegram()
@@ -1884,11 +1910,18 @@ class AdvancedPremiumBot:
             df.fillna(method='ffill', inplace=True)
             df.fillna(method='bfill', inplace=True)
             
+            # Verify required columns exist
+            required_columns = ['close', 'volume', 'rsi', 'macd']
+            if not all(col in df.columns for col in required_columns):
+                missing_columns = [col for col in required_columns if col not in df.columns]
+                logging.error(f"Missing required columns after calculating indicators: {missing_columns}")
+                raise ValueError(f"Missing required columns: {missing_columns}")
+            
             return df
             
         except Exception as e:
             logging.error(f"Error calculating indicators: {e}")
-            return df
+            raise
 
     async def initialize_telegram(self):
         """Initialize Telegram bot and set up command handlers"""

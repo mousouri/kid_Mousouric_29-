@@ -232674,3 +232674,13 @@
 2025-04-28 03:06:27,590 - ERROR - Error preparing data: "None of [Index(['close', 'volume', 'rsi', 'macd'], dtype='object')] are in the [columns]"
 2025-04-28 03:06:27,590 - ERROR - Failed to train LSTM predictor
 2025-04-28 03:06:27,590 - ERROR - Failed to initialize LSTM predictor
+2025-04-28 03:16:45,961 - INFO - Connected to MT5 account: 5034866250
+2025-04-28 03:16:45,969 - INFO - Connected to MT5 account: 5034866250
+2025-04-28 03:16:45,969 - ERROR - Missing required columns: ['close', 'volume', 'rsi', 'macd']
+2025-04-28 03:16:45,969 - ERROR - Failed to train LSTM predictor
+2025-04-28 03:16:45,969 - ERROR - Failed to initialize LSTM predictor
+2025-04-28 03:19:21,510 - INFO - Connected to MT5 account: 5034866250
+2025-04-28 03:19:21,519 - INFO - Connected to MT5 account: 5034866250
+2025-04-28 03:19:21,519 - ERROR - Missing required columns: ['close', 'volume', 'rsi', 'macd']
+2025-04-28 03:19:21,519 - ERROR - Failed to train LSTM predictor
+2025-04-28 03:19:21,519 - ERROR - Failed to initialize LSTM predictor

@@ -61,6 +61,10 @@ class LSTMPredictor:
         self.password = password
         self.server = server
         
+        # Data-related attributes
+        self.required_columns = ['close', 'volume', 'rsi', 'macd']
+        self.data_version = "1.2"  # Update when data format changes
+        
     def initialize(self) -> bool:
         """Initialize the LSTM predictor"""
         try:
@@ -94,12 +98,7 @@ class LSTMPredictor:
                 return True
             else:
                 # Create realistic dummy data with proper indicators
-                dummy_data = pd.DataFrame({
-                    'close': np.random.normal(1.0, 0.01, 1000),  # Normal distribution around 1.0
-                    'volume': np.random.randint(100, 1000, 1000),  # Random volume between 100-1000
-                    'rsi': np.random.uniform(30, 70, 1000),  # RSI between 30-70 (typical range)
-                    'macd': np.random.normal(0.0, 0.1, 1000)  # MACD around 0 with small variance
-                })
+                dummy_data = pd.DataFrame(np.zeros((1000, 4)), columns=['close', 'volume', 'rsi', 'macd'])
                 
                 if self.train(dummy_data):
                     logging.info("Created initial LSTM model with valid dummy data")
@@ -213,31 +212,30 @@ class LSTMPredictor:
     def prepare_data(self, df: pd.DataFrame) -> np.ndarray:
         """Prepare data for LSTM training with automatic indicator generation"""
         try:
+            # Check for essential 'close' column first
+            if 'close' not in df.columns:
+                logging.error("Missing 'close' column in the DataFrame")
+                return None
+
             # Generate missing technical indicators if needed
             if 'rsi' not in df.columns:
                 df['rsi'] = ta.momentum.rsi(df['close'], window=14)
-                
             if 'macd' not in df.columns:
                 macd = ta.trend.MACD(df['close'])
                 df['macd'] = macd.macd()
-                
-            # Ensure volume exists (create dummy volume if missing)
             if 'volume' not in df.columns:
-                df['volume'] = 0  # Or calculate from tick data
-                
-            # Verify required columns after generation
-            required_columns = ['close', 'volume', 'rsi', 'macd']
-            if not all(col in df.columns for col in required_columns):
-                missing = [col for col in required_columns if col not in df.columns]
-                logging.error(f"Still missing columns after generation: {missing}")
+                df['volume'] = 0  # Or calculate from tick data if available
+
+            # Verify all required columns are present
+            if not all(col in df.columns for col in self.required_columns):
+                missing = [col for col in self.required_columns if col not in df.columns]
+                logging.error(f"Missing columns after generation: {missing}")
                 return None
 
             # Select and scale features
-            features = df[required_columns].values
+            features = df[self.required_columns].values
             scaled_features = self.scaler.fit_transform(features)
-            
             return scaled_features
-            
         except Exception as e:
             logging.error(f"Error preparing data: {e}")
             return None
@@ -245,6 +243,13 @@ class LSTMPredictor:
     def train(self, df: pd.DataFrame) -> bool:
         """Train the LSTM model with early stopping and export to ONNX"""
         try:
+            # Check data quality before training
+            if df.isnull().values.any():
+                logging.error("Training data contains NaN values")
+                return False
+            if len(df) < 1000:
+                logging.warning(f"Training on small dataset (n={len(df)})")
+                
             # Prepare data
             data = self.prepare_data(df)
             if data is None:
@@ -346,54 +351,6 @@ class LSTMPredictor:
         except Exception as e:
             logging.error(f"Error making LSTM prediction: {e}")
             return None
-
-    def initialize(self) -> bool:
-        """Initialize the bot and its components"""
-        try:
-            # Initialize MT5
-            if not mt5.initialize():
-                logging.error("Failed to initialize MT5")
-                return False
-                
-            # Login to MT5 account
-            if not mt5.login(self.account, password=self.password, server=self.server):
-                logging.error("Failed to login to MT5 account")
-                return False
-                
-            # Get account info
-            account_info = mt5.account_info()
-            if account_info is None:
-                logging.error("Failed to get account info")
-                return False
-                
-            logging.info(f"Connected to MT5 account: {account_info.login}")
-            
-            # Initialize LSTM predictor
-            if not self.train(pd.DataFrame(np.zeros((1000, 4)))):
-                logging.error("Failed to train LSTM predictor")
-                return False
-                
-            # Initialize sentiment analyzer
-            if not self.sentiment_analyzer.initialize():
-                logging.error("Failed to initialize sentiment analyzer")
-                return False
-                
-            # Initialize market correlation analyzer
-            self.correlation_analyzer.update_correlations(self.symbols, mt5.TIMEFRAME_H1)
-            
-            # Set initial equity
-            self.risk_manager.initial_equity = account_info.balance
-            self.risk_manager.max_equity = account_info.balance
-            
-            # Mark as initialized
-            self.initialized = True
-            
-            logging.info("Bot initialized successfully")
-            return True
-            
-        except Exception as e:
-            logging.error(f"Error initializing bot: {e}")
-            return False
 
 class NewsSentimentAnalyzer:
     def __init__(self):
@@ -1086,7 +1043,11 @@ class AdvancedPremiumBot:
         # Initialize components
         self.strategy_manager = StrategyManager()
         self.risk_manager = RiskManager()
-        self.lstm_predictor = LSTMPredictor(account=self.account, password=self.password, server=self.server)
+        self.lstm_predictor = LSTMPredictor(
+            account=self.account, 
+            password=self.password, 
+            server=self.server
+        )  # Correct instance name
         self.sentiment_analyzer = NewsSentimentAnalyzer()
         self.economic_calendar = EconomicCalendar()
         self.correlation_analyzer = MarketCorrelationAnalyzer()
@@ -1387,6 +1348,7 @@ class AdvancedPremiumBot:
                                 logging.warning(f"Insufficient data for {symbol} on {timeframe_name}")
                                 continue
                                 
+                            # Convert to DataFrame and calculate indicators
                             df = pd.DataFrame(rates)
                             df['time'] = pd.to_datetime(df['time'], unit='s')
                             df.set_index('time', inplace=True)
@@ -1395,10 +1357,10 @@ class AdvancedPremiumBot:
                             if 'volume' not in df.columns:
                                 df['volume'] = 0
                                 
-                            # Calculate indicators
+                            # Calculate all required indicators
                             df = self.calculate_advanced_indicators(df)
                             
-                            # Ensure all required columns exist
+                            # Verify required columns exist
                             required_columns = ['close', 'volume', 'rsi', 'macd']
                             if not all(col in df.columns for col in required_columns):
                                 missing_columns = [col for col in required_columns if col not in df.columns]
@@ -2039,7 +2001,7 @@ class AdvancedPremiumBot:
             logging.info(f"Connected to MT5 account: {account_info.login}")
             
             # Initialize LSTM predictor
-            if not self.lstm_predictor.initialize():
+            if not self.lstm_predictor.initialize():  # This is already the predictor instance
                 logging.error("Failed to initialize LSTM predictor")
                 return False
                 

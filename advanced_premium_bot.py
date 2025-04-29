@@ -1273,6 +1273,22 @@ class StrategyManager:
         }
         self.market_conditions = {}
         self.strategy_performance = {}
+        self.scalping_params = {
+            'min_volatility': 0.001,  # Minimum volatility for scalping
+            'max_volatility': 0.005,  # Maximum volatility for scalping
+            'min_liquidity': 1000000,  # Minimum volume
+            'max_spread': 0.0002,     # Maximum spread in pips
+            'rsi_oversold': 30,       # RSI oversold level
+            'rsi_overbought': 70,     # RSI overbought level
+            'min_trend_strength': 0.2, # Minimum trend strength
+            'max_holding_time': 15,    # Maximum holding time in minutes
+            'partial_tp_ratio': 0.5,   # Take partial profit at 50% of target
+            'trailing_stop_activation': 0.3,  # Activate trailing stop at 30% of target
+            'trailing_stop_distance': 1.5,    # Trailing stop distance in ATR
+            'min_win_rate': 0.55,     # Minimum win rate to continue scalping
+            'max_daily_trades': 20,    # Maximum daily scalping trades
+            'cooldown_period': 5       # Minutes to wait after a loss
+        }
         
     def determine_strategy(self, df: pd.DataFrame) -> str:
         """Determine the best strategy based on market conditions"""
@@ -1365,22 +1381,166 @@ class StrategyManager:
             return None
             
     def _scalping_strategy(self, df: pd.DataFrame) -> Optional[Dict]:
-        """Scalping strategy implementation"""
+        """Enhanced scalping strategy implementation"""
         try:
-            # Check for scalping conditions
-            if df['atr'].iloc[-1] / df['close'].iloc[-1] < 0.001:  # Low volatility
+            # Get latest values
+            current_price = df['close'].iloc[-1]
+            current_volume = df['volume'].iloc[-1]
+            current_rsi = df['rsi'].iloc[-1]
+            current_macd = df['macd'].iloc[-1]
+            current_signal = df['macd_signal'].iloc[-1]
+            current_upper = df['bb_upper'].iloc[-1]
+            current_lower = df['bb_lower'].iloc[-1]
+            current_atr = df['atr'].iloc[-1]
+            ema_5 = df['ema_5'].iloc[-1]
+            ema_20 = df['ema_20'].iloc[-1]
+            
+            # Calculate volatility
+            volatility = current_atr / current_price
+            
+            # Check market conditions
+            if not self._check_scalping_conditions(volatility, current_volume, current_rsi):
                 return None
                 
-            # Use Bollinger Bands for scalping
-            if df['close'].iloc[-1] < df['bb_lower'].iloc[-1]:  # Buy signal
-                return {'direction': 'buy', 'confidence': 0.6}
-            elif df['close'].iloc[-1] > df['bb_upper'].iloc[-1]:  # Sell signal
-                return {'direction': 'sell', 'confidence': 0.6}
+            # Check trend alignment
+            if not self._check_trend_alignment(ema_5, ema_20):
+                return None
+                
+            # Generate signals with confidence
+            signal = None
+            confidence = 0.0
+            
+            # Buy signal conditions
+            if (current_price < current_lower and  # Price below lower band
+                current_rsi < self.scalping_params['rsi_oversold'] and  # Oversold
+                current_macd > current_signal and  # MACD bullish
+                current_volume > self.scalping_params['min_liquidity']):  # Good volume
+                signal = 'buy'
+                confidence = self._calculate_signal_confidence(
+                    current_price, current_lower, current_rsi, 
+                    self.scalping_params['rsi_oversold']
+                )
+                
+            # Sell signal conditions
+            elif (current_price > current_upper and  # Price above upper band
+                  current_rsi > self.scalping_params['rsi_overbought'] and  # Overbought
+                  current_macd < current_signal and  # MACD bearish
+                  current_volume > self.scalping_params['min_liquidity']):  # Good volume
+                signal = 'sell'
+                confidence = self._calculate_signal_confidence(
+                    current_price, current_upper, current_rsi,
+                    self.scalping_params['rsi_overbought']
+                )
+                
+            if signal and confidence >= 0.6:  # Minimum confidence threshold
+                return {
+                    'direction': signal,
+                    'confidence': confidence,
+                    'entry_price': current_price,
+                    'stop_loss': self._calculate_stop_loss(signal, current_price, current_atr),
+                    'take_profit': self._calculate_take_profit(signal, current_price, current_atr),
+                    'partial_tp': self._calculate_partial_tp(signal, current_price, current_atr),
+                    'trailing_stop': self._calculate_trailing_stop(signal, current_price, current_atr)
+                }
+                
             return None
             
         except Exception as e:
             logging.error(f"Error in scalping strategy: {e}")
             return None
+            
+    def _check_scalping_conditions(self, volatility: float, volume: float, rsi: float) -> bool:
+        """Check if market conditions are suitable for scalping"""
+        try:
+            # Check volatility
+            if not (self.scalping_params['min_volatility'] <= volatility <= self.scalping_params['max_volatility']):
+                return False
+                
+            # Check volume
+            if volume < self.scalping_params['min_liquidity']:
+                return False
+                
+            # Check RSI extremes
+            if not (rsi < self.scalping_params['rsi_oversold'] or rsi > self.scalping_params['rsi_overbought']):
+                return False
+                
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error checking scalping conditions: {e}")
+            return False
+            
+    def _check_trend_alignment(self, ema_5: float, ema_20: float) -> bool:
+        """Check if short-term trend aligns with scalping direction"""
+        try:
+            trend_strength = abs(ema_5 - ema_20) / ema_20
+            return trend_strength >= self.scalping_params['min_trend_strength']
+        except Exception as e:
+            logging.error(f"Error checking trend alignment: {e}")
+            return False
+            
+    def _calculate_signal_confidence(self, price: float, band: float, rsi: float, rsi_extreme: float) -> float:
+        """Calculate signal confidence based on multiple factors"""
+        try:
+            # Price distance from band (0-1)
+            price_confidence = abs(price - band) / band
+            
+            # RSI distance from extreme (0-1)
+            rsi_confidence = abs(rsi - rsi_extreme) / rsi_extreme
+            
+            # Combine confidences
+            confidence = (price_confidence + rsi_confidence) / 2
+            
+            return min(max(confidence, 0), 1)  # Ensure between 0 and 1
+            
+        except Exception as e:
+            logging.error(f"Error calculating signal confidence: {e}")
+            return 0.0
+            
+    def _calculate_stop_loss(self, direction: str, price: float, atr: float) -> float:
+        """Calculate dynamic stop loss based on ATR"""
+        try:
+            if direction == 'buy':
+                return price - (atr * 1.5)  # 1.5 ATR for stop loss
+            else:
+                return price + (atr * 1.5)
+        except Exception as e:
+            logging.error(f"Error calculating stop loss: {e}")
+            return 0.0
+            
+    def _calculate_take_profit(self, direction: str, price: float, atr: float) -> float:
+        """Calculate take profit level"""
+        try:
+            if direction == 'buy':
+                return price + (atr * 3)  # 3 ATR for take profit
+            else:
+                return price - (atr * 3)
+        except Exception as e:
+            logging.error(f"Error calculating take profit: {e}")
+            return 0.0
+            
+    def _calculate_partial_tp(self, direction: str, price: float, atr: float) -> float:
+        """Calculate partial take profit level"""
+        try:
+            full_tp = self._calculate_take_profit(direction, price, atr)
+            if direction == 'buy':
+                return price + ((full_tp - price) * self.scalping_params['partial_tp_ratio'])
+            else:
+                return price - ((price - full_tp) * self.scalping_params['partial_tp_ratio'])
+        except Exception as e:
+            logging.error(f"Error calculating partial take profit: {e}")
+            return 0.0
+            
+    def _calculate_trailing_stop(self, direction: str, price: float, atr: float) -> float:
+        """Calculate trailing stop level"""
+        try:
+            if direction == 'buy':
+                return price - (atr * self.scalping_params['trailing_stop_distance'])
+            else:
+                return price + (atr * self.scalping_params['trailing_stop_distance'])
+        except Exception as e:
+            logging.error(f"Error calculating trailing stop: {e}")
+            return 0.0
 
 class AdvancedPremiumBot:
     def __init__(self):

@@ -10056,3 +10056,143 @@
 2025-04-30 10:13:52,750 - trading_bot - INFO - Active position exists for GBPUSD, skipping
 2025-04-30 10:13:52,755 - trading_bot - INFO - Calculated levels - Entry: 142.688, SL: 142.75214, TP: 142.49557
 2025-04-30 10:13:52,755 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:14:52,762 - trading_bot - INFO - Calculated levels - Entry: 1.1389, SL: 1.13834, TP: 1.14058
+2025-04-30 10:14:52,762 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:14:52,766 - trading_bot - INFO - Calculated levels - Entry: 1.33995, SL: 1.33947, TP: 1.3414
+2025-04-30 10:14:52,767 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:14:52,771 - trading_bot - INFO - Calculated levels - Entry: 142.671, SL: 142.61, TP: 142.854
+2025-04-30 10:14:52,771 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:15:52,786 - trading_bot - INFO - Calculated levels - Entry: 1.13887, SL: 1.1383, TP: 1.14057
+2025-04-30 10:15:52,786 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:15:52,791 - trading_bot - INFO - Calculated levels - Entry: 1.33985, SL: 1.33935, TP: 1.34135
+2025-04-30 10:15:52,791 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:15:52,795 - trading_bot - INFO - Calculated levels - Entry: 142.672, SL: 142.72943, TP: 142.49971
+2025-04-30 10:15:52,795 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:16:52,808 - trading_bot - INFO - Calculated levels - Entry: 1.13884, SL: 1.1383, TP: 1.14046
+2025-04-30 10:16:52,809 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:16:52,812 - trading_bot - INFO - Calculated levels - Entry: 1.33972, SL: 1.33925, TP: 1.34114
+2025-04-30 10:16:52,812 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:16:52,817 - trading_bot - INFO - Calculated levels - Entry: 142.66, SL: 142.60229, TP: 142.83314
+2025-04-30 10:16:52,817 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:17:52,826 - trading_bot - INFO - Calculated levels - Entry: 1.13885, SL: 1.13832, TP: 1.14043
+2025-04-30 10:17:52,826 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:17:52,832 - trading_bot - INFO - Calculated levels - Entry: 1.33984, SL: 1.3403, TP: 1.33847
+2025-04-30 10:17:52,833 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:17:52,837 - trading_bot - INFO - Calculated levels - Entry: 142.676, SL: 142.61686, TP: 142.85343
+2025-04-30 10:17:52,837 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:18:52,858 - trading_bot - INFO - Calculated levels - Entry: 1.13872, SL: 1.13818, TP: 1.14033
+2025-04-30 10:18:52,858 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:18:52,863 - trading_bot - INFO - Calculated levels - Entry: 1.33984, SL: 1.34026, TP: 1.33858
+2025-04-30 10:18:52,863 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:18:52,867 - trading_bot - INFO - Calculated levels - Entry: 142.643, SL: 142.581, TP: 142.829
+2025-04-30 10:18:52,868 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:19:52,883 - trading_bot - INFO - Calculated levels - Entry: 1.13863, SL: 1.1381, TP: 1.14023
+2025-04-30 10:19:52,883 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:19:52,886 - trading_bot - INFO - Calculated levels - Entry: 1.33975, SL: 1.33934, TP: 1.34098
+2025-04-30 10:19:52,887 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:19:52,891 - trading_bot - INFO - Calculated levels - Entry: 142.676, SL: 142.61029, TP: 142.87314
+2025-04-30 10:19:52,893 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:20:52,897 - trading_bot - INFO - Calculated levels - Entry: 1.13889, SL: 1.13835, TP: 1.14052
+2025-04-30 10:20:52,898 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:20:52,902 - trading_bot - INFO - Calculated levels - Entry: 1.33991, SL: 1.33951, TP: 1.34111
+2025-04-30 10:20:52,903 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:20:52,906 - trading_bot - INFO - Calculated levels - Entry: 142.65, SL: 142.58371, TP: 142.84886
+2025-04-30 10:20:52,906 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:21:52,915 - trading_bot - INFO - Calculated levels - Entry: 1.13876, SL: 1.13822, TP: 1.14037
+2025-04-30 10:21:52,915 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:21:52,919 - trading_bot - INFO - Calculated levels - Entry: 1.33984, SL: 1.33944, TP: 1.34104
+2025-04-30 10:21:52,919 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:21:52,924 - trading_bot - INFO - Calculated levels - Entry: 142.662, SL: 142.59871, TP: 142.85186
+2025-04-30 10:21:52,924 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:22:52,933 - trading_bot - INFO - Calculated levels - Entry: 1.13892, SL: 1.13843, TP: 1.14038
+2025-04-30 10:22:52,933 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:22:52,938 - trading_bot - INFO - Calculated levels - Entry: 1.33985, SL: 1.33948, TP: 1.34096
+2025-04-30 10:22:52,938 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:22:52,943 - trading_bot - INFO - Calculated levels - Entry: 142.652, SL: 142.71529, TP: 142.46214
+2025-04-30 10:22:52,943 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:23:52,950 - trading_bot - INFO - Calculated levels - Entry: 1.13881, SL: 1.13833, TP: 1.14026
+2025-04-30 10:23:52,951 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:23:52,955 - trading_bot - INFO - Calculated levels - Entry: 1.33975, SL: 1.33939, TP: 1.34083
+2025-04-30 10:23:52,955 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:23:52,959 - trading_bot - INFO - Calculated levels - Entry: 142.662, SL: 142.72443, TP: 142.47471
+2025-04-30 10:23:52,959 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:24:52,972 - trading_bot - INFO - Calculated levels - Entry: 1.1384, SL: 1.1389, TP: 1.13689
+2025-04-30 10:24:52,972 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:24:52,978 - trading_bot - INFO - Calculated levels - Entry: 1.33953, SL: 1.33991, TP: 1.33839
+2025-04-30 10:24:52,979 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:24:52,985 - trading_bot - INFO - Calculated levels - Entry: 142.7, SL: 142.76771, TP: 142.49686
+2025-04-30 10:24:52,985 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:25:52,992 - trading_bot - INFO - Calculated levels - Entry: 1.13856, SL: 1.13907, TP: 1.13702
+2025-04-30 10:25:52,993 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:25:52,999 - trading_bot - INFO - Calculated levels - Entry: 1.33953, SL: 1.33991, TP: 1.33838
+2025-04-30 10:25:52,999 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:25:53,004 - trading_bot - INFO - Calculated levels - Entry: 142.726, SL: 142.79629, TP: 142.51514
+2025-04-30 10:25:53,005 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:26:53,012 - trading_bot - INFO - Calculated levels - Entry: 1.13836, SL: 1.13889, TP: 1.13677
+2025-04-30 10:26:53,013 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:26:53,017 - trading_bot - INFO - Calculated levels - Entry: 1.33934, SL: 1.33974, TP: 1.33815
+2025-04-30 10:26:53,017 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:26:53,021 - trading_bot - INFO - Calculated levels - Entry: 142.737, SL: 142.66943, TP: 142.93971
+2025-04-30 10:26:53,021 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:27:53,036 - trading_bot - INFO - Calculated levels - Entry: 1.13826, SL: 1.13877, TP: 1.13674
+2025-04-30 10:27:53,036 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:27:53,040 - trading_bot - INFO - Calculated levels - Entry: 1.33903, SL: 1.33863, TP: 1.34024
+2025-04-30 10:27:53,041 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:27:53,045 - trading_bot - INFO - Calculated levels - Entry: 142.756, SL: 142.69357, TP: 142.94329
+2025-04-30 10:27:53,046 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:28:53,064 - trading_bot - INFO - Calculated levels - Entry: 1.13805, SL: 1.13857, TP: 1.13649
+2025-04-30 10:28:53,064 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:28:53,069 - trading_bot - INFO - Calculated levels - Entry: 1.33893, SL: 1.33854, TP: 1.34011
+2025-04-30 10:28:53,070 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:28:53,073 - trading_bot - INFO - Calculated levels - Entry: 142.763, SL: 142.70157, TP: 142.94729
+2025-04-30 10:28:53,073 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:29:53,091 - trading_bot - INFO - Calculated levels - Entry: 1.13825, SL: 1.13875, TP: 1.13674
+2025-04-30 10:29:53,091 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:29:53,096 - trading_bot - INFO - Calculated levels - Entry: 1.33909, SL: 1.33872, TP: 1.3402
+2025-04-30 10:29:53,096 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:29:53,100 - trading_bot - INFO - Calculated levels - Entry: 142.733, SL: 142.67014, TP: 142.92157
+2025-04-30 10:29:53,101 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:30:53,112 - trading_bot - INFO - Calculated levels - Entry: 1.13795, SL: 1.13743, TP: 1.13951
+2025-04-30 10:30:53,112 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:30:53,116 - trading_bot - INFO - Calculated levels - Entry: 1.33895, SL: 1.33858, TP: 1.34006
+2025-04-30 10:30:53,116 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:30:53,120 - trading_bot - INFO - Calculated levels - Entry: 142.745, SL: 142.68486, TP: 142.92543
+2025-04-30 10:30:53,120 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:31:53,133 - trading_bot - INFO - Calculated levels - Entry: 1.13775, SL: 1.13722, TP: 1.13934
+2025-04-30 10:31:53,134 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:31:53,139 - trading_bot - INFO - Calculated levels - Entry: 1.33865, SL: 1.33825, TP: 1.33986
+2025-04-30 10:31:53,139 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:31:53,145 - trading_bot - INFO - Calculated levels - Entry: 142.774, SL: 142.83271, TP: 142.59786
+2025-04-30 10:31:53,145 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:32:53,162 - trading_bot - INFO - Calculated levels - Entry: 1.13761, SL: 1.13708, TP: 1.13921
+2025-04-30 10:32:53,162 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:32:53,165 - trading_bot - INFO - Calculated levels - Entry: 1.33858, SL: 1.33817, TP: 1.33982
+2025-04-30 10:32:53,165 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:32:53,169 - trading_bot - INFO - Calculated levels - Entry: 142.789, SL: 142.84343, TP: 142.62571
+2025-04-30 10:32:53,169 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:33:53,184 - trading_bot - INFO - Calculated levels - Entry: 1.13769, SL: 1.13718, TP: 1.13921
+2025-04-30 10:33:53,185 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:33:53,187 - trading_bot - INFO - Calculated levels - Entry: 1.33865, SL: 1.33825, TP: 1.33985
+2025-04-30 10:33:53,188 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:33:53,191 - trading_bot - INFO - Calculated levels - Entry: 142.804, SL: 142.85786, TP: 142.64243
+2025-04-30 10:33:53,192 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:34:53,198 - trading_bot - INFO - Calculated levels - Entry: 1.13754, SL: 1.13698, TP: 1.13922
+2025-04-30 10:34:53,198 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:34:53,201 - trading_bot - INFO - Calculated levels - Entry: 1.33825, SL: 1.33781, TP: 1.33958
+2025-04-30 10:34:53,202 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:34:53,206 - trading_bot - INFO - Calculated levels - Entry: 142.869, SL: 142.92957, TP: 142.68729
+2025-04-30 10:34:53,206 - trading_bot - INFO - Active position exists for USDJPY, skipping
+2025-04-30 10:35:40,825 - trading_bot - INFO - Trading bot received shutdown signal
+2025-04-30 10:43:22,609 - trading_bot - INFO - Initializing MetaTrader 5...
+2025-04-30 10:43:22,636 - trading_bot - INFO - MT5 version: (500, 4885, '28 Feb 2025')
+2025-04-30 10:43:22,637 - trading_bot - INFO - Connected to: MetaTrader 5
+2025-04-30 10:43:22,638 - trading_bot - INFO - Connection status: Connected
+2025-04-30 10:43:22,638 - trading_bot - INFO - Initializing components...
+2025-04-30 10:43:22,638 - trading_bot - INFO - Starting trading bot...
+2025-04-30 10:43:23,283 - trading_bot - INFO - Trading bot started successfully
+2025-04-30 10:43:23,779 - trading_bot - INFO - Calculated levels - Entry: 1.13741, SL: 1.13796, TP: 1.13577
+2025-04-30 10:43:23,780 - trading_bot - INFO - Active position exists for EURUSD, skipping
+2025-04-30 10:43:23,783 - trading_bot - INFO - Calculated levels - Entry: 1.33805, SL: 1.33751, TP: 1.33968
+2025-04-30 10:43:23,784 - trading_bot - INFO - Active position exists for GBPUSD, skipping
+2025-04-30 10:43:23,789 - trading_bot - INFO - Calculated levels - Entry: 142.795, SL: 142.85886, TP: 142.60343
+2025-04-30 10:43:23,789 - trading_bot - INFO - Active position exists for USDJPY, skipping

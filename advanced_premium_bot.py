@@ -803,6 +803,202 @@ class RiskManager:
         self.min_trailing_stop = 10  # Minimum trailing stop in pips
         self.max_trailing_stop = 50  # Maximum trailing stop in pips
         
+        # New circuit breaker parameters
+        self.circuit_breakers = {
+            'price_movement': 0.05,  # 5% price movement in 1 minute
+            'volume_spike': 3.0,     # 3x average volume
+            'volatility_jump': 2.0,  # 2x average volatility
+            'correlation_shift': 0.3  # 30% correlation shift
+        }
+        
+        # New correlation-based risk parameters
+        self.correlation_risk = {
+            'max_correlated_positions': 3,  # Maximum number of correlated positions
+            'correlation_window': 20,       # Window for correlation calculation
+            'min_correlation_threshold': 0.5,  # Minimum correlation to consider
+            'max_portfolio_correlation': 0.7   # Maximum allowed portfolio correlation
+        }
+        
+        # New dynamic position sizing parameters
+        self.position_sizing = {
+            'base_risk_per_trade': 0.01,  # 1% base risk per trade
+            'max_risk_per_trade': 0.02,   # 2% maximum risk per trade
+            'min_risk_per_trade': 0.005,  # 0.5% minimum risk per trade
+            'volatility_scaling': True,    # Enable volatility-based scaling
+            'correlation_scaling': True,   # Enable correlation-based scaling
+            'performance_scaling': True    # Enable performance-based scaling
+        }
+        
+        # Initialize monitoring variables
+        self.last_price_check = {}
+        self.last_volume_check = {}
+        self.last_volatility_check = {}
+        self.last_correlation_check = {}
+        self.circuit_breaker_triggered = False
+        self.circuit_breaker_time = None
+        self.circuit_breaker_cooldown = 300  # 5 minutes cooldown
+        
+    def check_circuit_breakers(self, symbol: str, current_price: float, current_volume: float, 
+                             volatility: float, correlation_matrix: Dict[str, float]) -> bool:
+        """Check if any circuit breakers are triggered"""
+        try:
+            current_time = time.time()
+            
+            # Check if we're in cooldown period
+            if (self.circuit_breaker_triggered and 
+                self.circuit_breaker_time and 
+                current_time - self.circuit_breaker_time < self.circuit_breaker_cooldown):
+                return True
+                
+            # Price movement circuit breaker
+            if symbol in self.last_price_check:
+                price_change = abs(current_price - self.last_price_check[symbol]) / self.last_price_check[symbol]
+                if price_change > self.circuit_breakers['price_movement']:
+                    logging.warning(f"Price movement circuit breaker triggered for {symbol}: {price_change:.2%}")
+                    self._trigger_circuit_breaker(current_time)
+                    return True
+                    
+            # Volume spike circuit breaker
+            if symbol in self.last_volume_check:
+                volume_ratio = current_volume / self.last_volume_check[symbol]
+                if volume_ratio > self.circuit_breakers['volume_spike']:
+                    logging.warning(f"Volume spike circuit breaker triggered for {symbol}: {volume_ratio:.2f}x")
+                    self._trigger_circuit_breaker(current_time)
+                    return True
+                    
+            # Volatility jump circuit breaker
+            if symbol in self.last_volatility_check:
+                volatility_ratio = volatility / self.last_volatility_check[symbol]
+                if volatility_ratio > self.circuit_breakers['volatility_jump']:
+                    logging.warning(f"Volatility jump circuit breaker triggered for {symbol}: {volatility_ratio:.2f}x")
+                    self._trigger_circuit_breaker(current_time)
+                    return True
+                    
+            # Correlation shift circuit breaker
+            if symbol in self.last_correlation_check:
+                correlation_shift = abs(correlation_matrix[symbol] - self.last_correlation_check[symbol])
+                if correlation_shift > self.circuit_breakers['correlation_shift']:
+                    logging.warning(f"Correlation shift circuit breaker triggered for {symbol}: {correlation_shift:.2%}")
+                    self._trigger_circuit_breaker(current_time)
+                    return True
+                    
+            # Update last check values
+            self.last_price_check[symbol] = current_price
+            self.last_volume_check[symbol] = current_volume
+            self.last_volatility_check[symbol] = volatility
+            self.last_correlation_check[symbol] = correlation_matrix[symbol]
+            
+            return False
+            
+        except Exception as e:
+            logging.error(f"Error checking circuit breakers: {e}")
+            return False
+            
+    def _trigger_circuit_breaker(self, current_time: float) -> None:
+        """Trigger circuit breaker and set cooldown period"""
+        self.circuit_breaker_triggered = True
+        self.circuit_breaker_time = current_time
+        logging.warning("Circuit breaker triggered - trading paused for 5 minutes")
+        
+    def calculate_correlation_risk(self, symbol: str, correlation_matrix: Dict[str, float]) -> float:
+        """Calculate correlation-based risk adjustment"""
+        try:
+            # Get all open positions
+            positions = mt5.positions_get()
+            if positions is None:
+                return 1.0
+                
+            # Count correlated positions
+            correlated_count = 0
+            total_correlation = 0.0
+            
+            for position in positions:
+                if position.symbol == symbol:
+                    continue
+                    
+                # Get correlation between symbols
+                corr_key = f"{symbol}_{position.symbol}"
+                if corr_key in correlation_matrix:
+                    correlation = correlation_matrix[corr_key]
+                    if abs(correlation) >= self.correlation_risk['min_correlation_threshold']:
+                        correlated_count += 1
+                        total_correlation += abs(correlation)
+                        
+            # Calculate risk adjustment
+            if correlated_count > 0:
+                avg_correlation = total_correlation / correlated_count
+                risk_adjustment = 1.0 - (avg_correlation / self.correlation_risk['max_portfolio_correlation'])
+                return max(0.5, min(1.0, risk_adjustment))
+                
+            return 1.0
+            
+        except Exception as e:
+            logging.error(f"Error calculating correlation risk: {e}")
+            return 1.0
+            
+    def calculate_dynamic_position_size(self, symbol: str, base_size: float, volatility: float, 
+                                      correlation_factor: float, performance_factor: float) -> float:
+        """Calculate dynamic position size based on multiple factors"""
+        try:
+            # Start with base position size
+            position_size = base_size
+            
+            # Volatility scaling
+            if self.position_sizing['volatility_scaling']:
+                volatility_factor = 1.0 - (volatility / self.volatility_threshold)
+                position_size *= max(0.5, min(1.5, volatility_factor))
+                
+            # Correlation scaling
+            if self.position_sizing['correlation_scaling']:
+                position_size *= correlation_factor
+                
+            # Performance scaling
+            if self.position_sizing['performance_scaling']:
+                position_size *= performance_factor
+                
+            # Ensure within limits
+            position_size = max(self.position_sizing['min_risk_per_trade'],
+                              min(self.position_sizing['max_risk_per_trade'], position_size))
+                              
+            return position_size
+            
+        except Exception as e:
+            logging.error(f"Error calculating dynamic position size: {e}")
+            return base_size
+            
+    def calculate_performance_factor(self, symbol: str) -> float:
+        """Calculate performance-based risk adjustment"""
+        try:
+            # Get recent trades for this symbol
+            recent_trades = [t for t in self.performance_history 
+                           if t['symbol'] == symbol][-self.performance_window:]
+                           
+            if not recent_trades:
+                return 1.0
+                
+            # Calculate win rate and average profit
+            winning_trades = [t for t in recent_trades if t['profit'] > 0]
+            win_rate = len(winning_trades) / len(recent_trades)
+            
+            if win_rate == 0:
+                return 0.5
+                
+            avg_profit = np.mean([t['profit'] for t in winning_trades])
+            avg_loss = abs(np.mean([t['profit'] for t in recent_trades if t['profit'] < 0]))
+            
+            if avg_loss == 0:
+                return 1.0
+                
+            # Calculate performance factor
+            risk_reward = avg_profit / avg_loss
+            performance_factor = win_rate * risk_reward
+            
+            return max(0.5, min(1.5, performance_factor))
+            
+        except Exception as e:
+            logging.error(f"Error calculating performance factor: {e}")
+            return 1.0
+            
     def calculate_adaptive_position_size(self, 
                                        symbol: str, 
                                        current_price: float, 
@@ -1788,6 +1984,9 @@ class StrategyManager:
         """Initialize the bot with configuration parameters"""
         super().__init__(config)
         
+        # Initialize currency pair manager
+        self.pair_manager = CurrencyPairManager()
+        
         # Spread and liquidity parameters
         self.spread_params = {
             'max_spread_pips': 3.0,           # Maximum allowed spread in pips
@@ -2434,3 +2633,292 @@ class MarketHours:
                 next_session = f"{session['name']} Close"
                 
         return next_session, next_change
+
+class CurrencyPairManager:
+    def __init__(self):
+        self.pair_configs = {
+            'EURUSD': {
+                'min_spread': 0.5,        # Minimum spread in pips
+                'max_spread': 2.0,        # Maximum spread in pips
+                'min_volume': 1000000,    # Minimum daily volume
+                'volatility_threshold': 0.0005,  # Volatility threshold
+                'preferred_sessions': ['london', 'new_york'],
+                'scalping_allowed': True,
+                'position_size_multiplier': 1.0,
+                'max_daily_trades': 20,
+                'risk_adjustment': 1.0
+            },
+            'GBPUSD': {
+                'min_spread': 1.0,
+                'max_spread': 3.0,
+                'min_volume': 800000,
+                'volatility_threshold': 0.0008,
+                'preferred_sessions': ['london', 'new_york'],
+                'scalping_allowed': True,
+                'position_size_multiplier': 0.8,
+                'max_daily_trades': 15,
+                'risk_adjustment': 0.9
+            },
+            'USDJPY': {
+                'min_spread': 0.8,
+                'max_spread': 2.5,
+                'min_volume': 900000,
+                'volatility_threshold': 0.0006,
+                'preferred_sessions': ['tokyo', 'london'],
+                'scalping_allowed': True,
+                'position_size_multiplier': 0.9,
+                'max_daily_trades': 18,
+                'risk_adjustment': 0.95
+            },
+            'AUDUSD': {
+                'min_spread': 1.2,
+                'max_spread': 3.5,
+                'min_volume': 700000,
+                'volatility_threshold': 0.0007,
+                'preferred_sessions': ['sydney', 'tokyo'],
+                'scalping_allowed': False,
+                'position_size_multiplier': 0.7,
+                'max_daily_trades': 12,
+                'risk_adjustment': 0.85
+            },
+            'EURJPY': {
+                'min_spread': 1.5,
+                'max_spread': 4.0,
+                'min_volume': 600000,
+                'volatility_threshold': 0.0010,
+                'preferred_sessions': ['london', 'tokyo'],
+                'scalping_allowed': True,
+                'position_size_multiplier': 0.6,
+                'max_daily_trades': 10,
+                'risk_adjustment': 0.8
+            },
+            'GBPJPY': {
+                'min_spread': 2.0,
+                'max_spread': 5.0,
+                'min_volume': 500000,
+                'volatility_threshold': 0.0012,
+                'preferred_sessions': ['london', 'tokyo'],
+                'scalping_allowed': True,
+                'position_size_multiplier': 0.5,
+                'max_daily_trades': 8,
+                'risk_adjustment': 0.7
+            }
+        }
+        
+        self.session_volatility_multipliers = {
+            'london': 1.2,
+            'new_york': 1.1,
+            'tokyo': 0.9,
+            'sydney': 0.8
+        }
+        
+        self.pair_performance = {}
+        self.pair_blacklist = set()
+        self.pair_whitelist = set()
+        
+    def get_pair_config(self, symbol: str) -> Dict:
+        """Get configuration for a specific currency pair"""
+        return self.pair_configs.get(symbol, {})
+        
+    def is_pair_allowed(self, symbol: str) -> bool:
+        """Check if a pair is allowed for trading"""
+        if symbol in self.pair_blacklist:
+            return False
+        if self.pair_whitelist and symbol not in self.pair_whitelist:
+            return False
+        return True
+        
+    def update_pair_performance(self, symbol: str, trade_result: Dict) -> None:
+        """Update performance metrics for a currency pair"""
+        try:
+            if symbol not in self.pair_performance:
+                self.pair_performance[symbol] = {
+                    'total_trades': 0,
+                    'winning_trades': 0,
+                    'total_profit': 0,
+                    'max_drawdown': 0,
+                    'avg_win': 0,
+                    'avg_loss': 0,
+                    'last_update': time.time()
+                }
+                
+            performance = self.pair_performance[symbol]
+            performance['total_trades'] += 1
+            performance['total_profit'] += trade_result['profit']
+            
+            if trade_result['profit'] > 0:
+                performance['winning_trades'] += 1
+                performance['avg_win'] = (performance['avg_win'] * (performance['winning_trades'] - 1) + 
+                                        trade_result['profit']) / performance['winning_trades']
+            else:
+                performance['avg_loss'] = (performance['avg_loss'] * 
+                                         (performance['total_trades'] - performance['winning_trades'] - 1) + 
+                                         abs(trade_result['profit'])) / (performance['total_trades'] - performance['winning_trades'])
+                
+            # Update max drawdown
+            current_drawdown = (performance['peak_equity'] - trade_result['equity']) / performance['peak_equity']
+            performance['max_drawdown'] = max(performance['max_drawdown'], current_drawdown)
+            
+            # Update peak equity
+            performance['peak_equity'] = max(performance.get('peak_equity', 0), trade_result['equity'])
+            
+            # Check if pair should be blacklisted
+            if (performance['total_trades'] >= 20 and 
+                performance['winning_trades'] / performance['total_trades'] < 0.4):
+                self.pair_blacklist.add(symbol)
+                logging.warning(f"Pair {symbol} blacklisted due to poor performance")
+                
+        except Exception as e:
+            logging.error(f"Error updating pair performance: {e}")
+            
+    def get_best_pairs_for_session(self, current_session: str) -> List[str]:
+        """Get the best pairs to trade in the current session"""
+        try:
+            suitable_pairs = []
+            
+            for symbol, config in self.pair_configs.items():
+                if not self.is_pair_allowed(symbol):
+                    continue
+                    
+                # Check if pair is suitable for current session
+                if current_session in config['preferred_sessions']:
+                    # Get current market conditions
+                    tick = mt5.symbol_info_tick(symbol)
+                    if tick is None:
+                        continue
+                        
+                    # Calculate spread
+                    spread = (tick.ask - tick.bid) * 10000  # Convert to pips
+                    
+                    # Check if spread is within acceptable range
+                    if (spread >= config['min_spread'] and 
+                        spread <= config['max_spread']):
+                        
+                        # Calculate volatility score
+                        volatility_score = self._calculate_volatility_score(symbol)
+                        
+                        # Calculate performance score
+                        performance_score = self._calculate_performance_score(symbol)
+                        
+                        # Calculate final score
+                        final_score = (volatility_score * 0.4 + 
+                                     performance_score * 0.6)
+                        
+                        suitable_pairs.append({
+                            'symbol': symbol,
+                            'score': final_score,
+                            'spread': spread,
+                            'volatility': volatility_score,
+                            'performance': performance_score
+                        })
+                        
+            # Sort pairs by score
+            suitable_pairs.sort(key=lambda x: x['score'], reverse=True)
+            
+            return [p['symbol'] for p in suitable_pairs[:3]]  # Return top 3 pairs
+            
+        except Exception as e:
+            logging.error(f"Error getting best pairs for session: {e}")
+            return []
+            
+    def _calculate_volatility_score(self, symbol: str) -> float:
+        """Calculate volatility score for a pair"""
+        try:
+            # Get recent price data
+            rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 0, 100)
+            if rates is None:
+                return 0
+                
+            # Calculate ATR
+            high = rates['high']
+            low = rates['low']
+            close = rates['close']
+            
+            tr = np.maximum(high - low, 
+                          np.maximum(np.abs(high - np.roll(close, 1)),
+                                   np.abs(low - np.roll(close, 1))))
+            atr = np.mean(tr)
+            
+            # Normalize ATR
+            normalized_atr = atr / close[-1]
+            
+            # Compare to threshold
+            threshold = self.pair_configs[symbol]['volatility_threshold']
+            score = min(1.0, normalized_atr / threshold)
+            
+            return score
+            
+        except Exception as e:
+            logging.error(f"Error calculating volatility score: {e}")
+            return 0
+            
+    def _calculate_performance_score(self, symbol: str) -> float:
+        """Calculate performance score for a pair"""
+        try:
+            if symbol not in self.pair_performance:
+                return 0.5  # Default score for new pairs
+                
+            performance = self.pair_performance[symbol]
+            
+            if performance['total_trades'] < 10:
+                return 0.5
+                
+            # Calculate win rate
+            win_rate = performance['winning_trades'] / performance['total_trades']
+            
+            # Calculate risk-reward ratio
+            if performance['avg_loss'] == 0:
+                risk_reward = 1.0
+            else:
+                risk_reward = performance['avg_win'] / performance['avg_loss']
+                
+            # Calculate drawdown penalty
+            drawdown_penalty = 1.0 - min(1.0, performance['max_drawdown'] / 0.2)
+            
+            # Calculate final score
+            score = (win_rate * 0.4 + 
+                    min(1.0, risk_reward / 2.0) * 0.3 + 
+                    drawdown_penalty * 0.3)
+            
+            return score
+            
+        except Exception as e:
+            logging.error(f"Error calculating performance score: {e}")
+            return 0.5
+            
+    def adjust_position_size(self, symbol: str, base_size: float) -> float:
+        """Adjust position size based on pair characteristics"""
+        try:
+            config = self.pair_configs.get(symbol, {})
+            if not config:
+                return base_size
+                
+            # Apply pair-specific multiplier
+            adjusted_size = base_size * config['position_size_multiplier']
+            
+            # Apply risk adjustment
+            adjusted_size *= config['risk_adjustment']
+            
+            # Apply session-specific adjustment
+            current_session = self._get_current_session()
+            if current_session in self.session_volatility_multipliers:
+                adjusted_size *= self.session_volatility_multipliers[current_session]
+                
+            return adjusted_size
+            
+        except Exception as e:
+            logging.error(f"Error adjusting position size: {e}")
+            return base_size
+            
+    def _get_current_session(self) -> str:
+        """Get current trading session"""
+        current_hour = datetime.now().hour
+        
+        if 0 <= current_hour < 8:
+            return 'sydney'
+        elif 8 <= current_hour < 16:
+            return 'tokyo'
+        elif 16 <= current_hour < 24:
+            return 'london'
+        else:
+            return 'new_york'

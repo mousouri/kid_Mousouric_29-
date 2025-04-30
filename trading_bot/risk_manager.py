@@ -21,6 +21,23 @@ class RiskManager:
         self._cache = {}  # Cache for calculations
         self._cache_timeout = 300  # 5 minutes cache timeout
         
+        # ATR-based volatility scaling parameters
+        self.atr_period = 14
+        self.atr_history_length = 1000  # Keep last 1000 ATR values
+        self.atr_thresholds = {
+            'low': 0.3,    # 30th percentile
+            'medium': 0.5,  # 50th percentile
+            'high': 0.7,   # 70th percentile
+            'extreme': 0.9  # 90th percentile
+        }
+        self.volatility_multipliers = {
+            'low': 1.2,     # Increase position size in low volatility
+            'medium': 1.0,  # Normal position size
+            'high': 0.7,    # Reduce position size in high volatility
+            'extreme': 0.5  # Significantly reduce in extreme volatility
+        }
+        self.atr_history = {}  # Store ATR history per symbol
+        
     def _get_cached_data(self, key: str, func: callable, *args, **kwargs):
         """Get cached data or calculate and cache it"""
         current_time = time.time()
@@ -210,7 +227,7 @@ class RiskManager:
             return 1.0
             
     def calculate_position_size(self, symbol: str, entry_price: float, stop_loss: float) -> float:
-        """Calculate optimal position size with enhanced risk management"""
+        """Calculate optimal position size with enhanced volatility scaling"""
         try:
             # Get market conditions
             volatility = self.calculate_volatility(symbol)
@@ -227,9 +244,14 @@ class RiskManager:
             stop_distance = abs(entry_price - stop_loss)
             point_value = symbol_info.point
             
-            # Adjust risk based on market conditions
+            # Get ATR percentile and volatility multiplier
+            atr_percentile = self._get_atr_percentile(symbol, volatility)
+            volatility_multiplier = self._get_volatility_multiplier(atr_percentile)
+            
+            # Adjust risk based on market conditions and volatility
             base_risk = self.config.risk_per_trade
             adjusted_risk = base_risk * self.get_risk_multiplier(volatility, liquidity, market_state)
+            adjusted_risk *= volatility_multiplier
             
             # Calculate risk amount
             risk_amount = adjusted_risk * self.account_balance
@@ -264,15 +286,56 @@ class RiskManager:
             step = symbol_info.volume_step
             position_size = round(position_size / step) * step
             
-            # Ensure minimum position size
-            if position_size < symbol_info.volume_min:
-                self.logger.warning(f"Position size too small for {symbol}, using minimum size")
-                return symbol_info.volume_min
-                
+            # Log volatility scaling decision
+            self.logger.info(f"ATR percentile: {atr_percentile:.2%}, Volatility multiplier: {volatility_multiplier:.2f}")
+            
             return position_size
+            
         except Exception as e:
             self.logger.error(f"Error calculating position size: {e}")
             return self._calculate_fallback_position_size(symbol, entry_price, stop_loss)
+            
+    def _get_atr_percentile(self, symbol: str, current_atr: float) -> float:
+        """Calculate current ATR percentile based on historical data"""
+        try:
+            if symbol not in self.atr_history:
+                self.atr_history[symbol] = []
+                
+            # Add current ATR to history
+            self.atr_history[symbol].append(current_atr)
+            
+            # Keep only last N values
+            if len(self.atr_history[symbol]) > self.atr_history_length:
+                self.atr_history[symbol] = self.atr_history[symbol][-self.atr_history_length:]
+                
+            # Calculate percentile
+            if len(self.atr_history[symbol]) < 10:  # Need minimum data points
+                return 0.5  # Default to median
+                
+            sorted_atr = sorted(self.atr_history[symbol])
+            percentile = sum(1 for x in sorted_atr if x <= current_atr) / len(sorted_atr)
+            
+            return percentile
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating ATR percentile: {e}")
+            return 0.5
+            
+    def _get_volatility_multiplier(self, atr_percentile: float) -> float:
+        """Get position size multiplier based on ATR percentile"""
+        try:
+            if atr_percentile <= self.atr_thresholds['low']:
+                return self.volatility_multipliers['low']
+            elif atr_percentile <= self.atr_thresholds['medium']:
+                return self.volatility_multipliers['medium']
+            elif atr_percentile <= self.atr_thresholds['high']:
+                return self.volatility_multipliers['high']
+            else:
+                return self.volatility_multipliers['extreme']
+                
+        except Exception as e:
+            self.logger.error(f"Error getting volatility multiplier: {e}")
+            return 1.0
             
     def _calculate_fallback_position_size(self, symbol: str, entry_price: float, stop_loss: float) -> float:
         """Calculate fallback position size when main calculation fails"""

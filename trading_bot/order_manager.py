@@ -39,6 +39,7 @@ class OrderManager:
         """Place an order with enhanced price validation and retries"""
         max_retries = 3
         retry_delay = 1  # seconds
+        last_price = None
         
         for attempt in range(max_retries):
             try:
@@ -54,6 +55,16 @@ class OrderManager:
                     self.logger.error(f"Invalid prices for {symbol}")
                     await asyncio.sleep(retry_delay)
                     continue
+                    
+                # Check for significant price change
+                if last_price is not None:
+                    price_change = abs(price_data['ask'] - last_price) / last_price
+                    if price_change > 0.001:  # 0.1% price change threshold
+                        self.logger.warning(f"Significant price change detected for {symbol}: {price_change*100:.2f}%")
+                        await asyncio.sleep(retry_delay)
+                        continue
+                        
+                last_price = price_data['ask']
                     
                 # Calculate entry price based on order type
                 if order_type == "BUY":
@@ -79,7 +90,7 @@ class OrderManager:
                     "price": entry_price,
                     "sl": sl_price,
                     "tp": tp_price,
-                    "deviation": 10,
+                    "deviation": 20,  # Increased deviation to handle more price movement
                     "magic": 234000,
                     "comment": "python script open",
                     "type_time": mt5.ORDER_TIME_GTC,
@@ -88,12 +99,20 @@ class OrderManager:
                 
                 # Send the order
                 result = mt5.order_send(request)
+                
+                # Handle specific error cases
                 if result.retcode != mt5.TRADE_RETCODE_DONE:
-                    self.logger.error(f"Order failed: {result.comment}")
-                    if "No prices" in result.comment:
+                    if "Requote" in result.comment:
+                        self.logger.warning(f"Requote received for {symbol}, retrying...")
                         await asyncio.sleep(retry_delay)
                         continue
-                    return False
+                    elif "No prices" in result.comment:
+                        self.logger.warning(f"No prices available for {symbol}, retrying...")
+                        await asyncio.sleep(retry_delay)
+                        continue
+                    else:
+                        self.logger.error(f"Order failed: {result.comment}")
+                        return False
                     
                 self.logger.info(f"Order placed successfully: {result.comment}")
                 return True

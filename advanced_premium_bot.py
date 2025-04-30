@@ -1274,21 +1274,52 @@ class StrategyManager:
         self.market_conditions = {}
         self.strategy_performance = {}
         self.scalping_params = {
-            'min_volatility': 0.001,  # Minimum volatility for scalping
-            'max_volatility': 0.005,  # Maximum volatility for scalping
-            'min_liquidity': 1000000,  # Minimum volume
-            'max_spread': 0.0002,     # Maximum spread in pips
-            'rsi_oversold': 30,       # RSI oversold level
-            'rsi_overbought': 70,     # RSI overbought level
-            'min_trend_strength': 0.2, # Minimum trend strength
-            'max_holding_time': 15,    # Maximum holding time in minutes
-            'partial_tp_ratio': 0.5,   # Take partial profit at 50% of target
-            'trailing_stop_activation': 0.3,  # Activate trailing stop at 30% of target
-            'trailing_stop_distance': 1.5,    # Trailing stop distance in ATR
-            'min_win_rate': 0.55,     # Minimum win rate to continue scalping
-            'max_daily_trades': 20,    # Maximum daily scalping trades
-            'cooldown_period': 5       # Minutes to wait after a loss
+            'min_volatility': 0.0001,    # Minimum volatility for scalping
+            'max_volatility': 0.005,     # Maximum volatility for scalping
+            'min_liquidity': 1000,       # Minimum volume for scalping
+            'rsi_oversold': 30,          # RSI oversold threshold
+            'rsi_overbought': 70,        # RSI overbought threshold
+            'min_win_rate': 0.55,        # Minimum win rate to continue scalping
+            'max_daily_trades': 20,      # Maximum daily scalping trades
+            'cooldown_period': 5,        # Minutes to wait after a loss
+            'base_position_size': 0.01,  # Base position size
+            'min_position_size': 0.001,  # Minimum position size
+            'max_position_size': 0.02,   # Maximum position size
+            'max_news_impact': 0.7,      # Maximum allowed news impact
+            'max_correlation': 0.8,      # Maximum allowed market correlation
+            'vwap_window': 20,           # VWAP calculation window
+            'obv_ema_period': 20,        # OBV EMA period
+            'stoch_period': 14,          # Stochastic period
+            'momentum_window': 5,        # Momentum calculation window
+            'volume_momentum_window': 5, # Volume momentum window
+            'volume_spike_threshold': 2.0, # Volume spike threshold (x average)
+            'volume_lookback': 20,       # Volume lookback period
+            'ema_fast': 5,               # Fast EMA period
+            'ema_slow': 20,              # Slow EMA period
+            'pullback_threshold': 0.001,  # Pullback threshold
+            'breakout_threshold': 0.002,  # Breakout threshold
+            'min_trend_strength': 0.2,    # Minimum trend strength
+            'timeframe_confirmation': {   # Multi-timeframe confirmation
+                'entry': 'M1',
+                'trend': 'M5',
+                'trend_secondary': 'H1'
+            }
         }
+        
+        # Initialize tracking variables
+        self.last_trade_date = None
+        self.daily_trade_count = 0
+        self.last_loss_time = None
+        self.total_trades = 0
+        self.winning_trades = 0
+        
+        # Initialize analyzers
+        self.news_analyzer = NewsSentimentAnalyzer()
+        self.correlation_analyzer = MarketCorrelationAnalyzer()
+        self.market_hours = MarketHours()
+        
+        # Initialize technical indicators
+        self.initialize_technical_indicators()
         
     def determine_strategy(self, df: pd.DataFrame) -> str:
         """Determine the best strategy based on market conditions"""
@@ -1381,8 +1412,24 @@ class StrategyManager:
             return None
             
     def _scalping_strategy(self, df: pd.DataFrame) -> Optional[Dict]:
-        """Enhanced scalping strategy implementation"""
+        """Scalping strategy with risk management"""
         try:
+            # Check trade limits first
+            if not self.check_trade_limits():
+                return None
+                
+            # Check if symbol is allowed
+            if not self.is_symbol_allowed(self.symbol):
+                return None
+                
+            # Calculate returns for VaR
+            returns = df['close'].pct_change().dropna()
+            var = self.calculate_var(returns)
+            es = self.calculate_expected_shortfall(returns)
+            
+            # Update portfolio risk
+            self.update_portfolio_risk()
+            
             # Get latest values
             current_price = df['close'].iloc[-1]
             current_volume = df['volume'].iloc[-1]
@@ -1392,47 +1439,64 @@ class StrategyManager:
             current_upper = df['bb_upper'].iloc[-1]
             current_lower = df['bb_lower'].iloc[-1]
             current_atr = df['atr'].iloc[-1]
-            ema_5 = df['ema_5'].iloc[-1]
-            ema_20 = df['ema_20'].iloc[-1]
+            ema_fast = df['ema_5'].iloc[-1]
+            ema_slow = df['ema_20'].iloc[-1]
             
-            # Calculate volatility
+            # Calculate additional technical indicators
+            vwap = df['vwap'].iloc[-1]
+            obv = df['obv'].iloc[-1]
+            obv_ema = df['obv_ema'].iloc[-1]
+            stoch_k = df['stoch_k'].iloc[-1]
+            stoch_d = df['stoch_d'].iloc[-1]
+            
+            # Calculate volatility and momentum metrics
             volatility = current_atr / current_price
+            momentum = (current_price - df['close'].iloc[-5]) / df['close'].iloc[-5]
+            volume_momentum = (current_volume - df['volume'].iloc[-5]) / df['volume'].iloc[-5]
             
             # Check market conditions
             if not self._check_scalping_conditions(volatility, current_volume, current_rsi):
                 return None
                 
-            # Check trend alignment
-            if not self._check_trend_alignment(ema_5, ema_20):
+            # Check multi-timeframe trend alignment
+            if not self._check_multi_timeframe_trend():
+                return None
+                
+            # Check for volume spike
+            if not self._check_volume_spike(current_volume, df['volume']):
                 return None
                 
             # Generate signals with confidence
             signal = None
             confidence = 0.0
             
-            # Buy signal conditions
-            if (current_price < current_lower and  # Price below lower band
-                current_rsi < self.scalping_params['rsi_oversold'] and  # Oversold
-                current_macd > current_signal and  # MACD bullish
-                current_volume > self.scalping_params['min_liquidity']):  # Good volume
-                signal = 'buy'
-                confidence = self._calculate_signal_confidence(
-                    current_price, current_lower, current_rsi, 
-                    self.scalping_params['rsi_oversold']
+            # Try different scalping strategies
+            strategies = [
+                self._breakout_strategy,
+                self._pullback_strategy,
+                self._ema_crossover_strategy
+            ]
+            
+            for strategy in strategies:
+                result = strategy(df)
+                if result:
+                    signal = result['direction']
+                    confidence = result['confidence']
+                    break
+                    
+            if signal and confidence >= 0.7:  # Increased confidence threshold
+                # Calculate dynamic position size based on volatility
+                position_size = self._calculate_dynamic_position_size(
+                    signal, current_price, current_atr, volatility
                 )
                 
-            # Sell signal conditions
-            elif (current_price > current_upper and  # Price above upper band
-                  current_rsi > self.scalping_params['rsi_overbought'] and  # Overbought
-                  current_macd < current_signal and  # MACD bearish
-                  current_volume > self.scalping_params['min_liquidity']):  # Good volume
-                signal = 'sell'
-                confidence = self._calculate_signal_confidence(
-                    current_price, current_upper, current_rsi,
-                    self.scalping_params['rsi_overbought']
-                )
+                # Adjust position size using Kelly fraction
+                position_size *= self.risk_params['kelly_fraction']
                 
-            if signal and confidence >= 0.6:  # Minimum confidence threshold
+                # Further reduce position size if VaR is high
+                if var > 0.02:  # If VaR > 2%
+                    position_size *= 0.5
+                    
                 return {
                     'direction': signal,
                     'confidence': confidence,
@@ -1440,7 +1504,11 @@ class StrategyManager:
                     'stop_loss': self._calculate_stop_loss(signal, current_price, current_atr),
                     'take_profit': self._calculate_take_profit(signal, current_price, current_atr),
                     'partial_tp': self._calculate_partial_tp(signal, current_price, current_atr),
-                    'trailing_stop': self._calculate_trailing_stop(signal, current_price, current_atr)
+                    'trailing_stop': self._calculate_trailing_stop(signal, current_price, current_atr),
+                    'position_size': position_size,
+                    'vwap': vwap,
+                    'momentum': momentum,
+                    'volume_momentum': volume_momentum
                 }
                 
             return None
@@ -1449,151 +1517,245 @@ class StrategyManager:
             logging.error(f"Error in scalping strategy: {e}")
             return None
             
-    def _check_scalping_conditions(self, volatility: float, volume: float, rsi: float) -> bool:
-        """Check if market conditions are suitable for scalping"""
+    def calculate_var(self, returns: pd.Series, confidence_level: float = None) -> float:
+        """Calculate Value at Risk (VaR)"""
         try:
-            # Check volatility
-            if not (self.scalping_params['min_volatility'] <= volatility <= self.scalping_params['max_volatility']):
+            if confidence_level is None:
+                confidence_level = self.risk_params['var_confidence_level']
+                
+            # Calculate VaR using historical simulation
+            var = np.percentile(returns, (1 - confidence_level) * 100)
+            return abs(var)  # Return absolute value as VaR is typically reported as positive
+            
+        except Exception as e:
+            logging.error(f"Error calculating VaR: {e}")
+            return float('inf')
+            
+    def calculate_expected_shortfall(self, returns: pd.Series, confidence_level: float = None) -> float:
+        """Calculate Expected Shortfall (ES)"""
+        try:
+            if confidence_level is None:
+                confidence_level = self.risk_params['var_confidence_level']
+                
+            # Calculate VaR first
+            var = self.calculate_var(returns, confidence_level)
+            
+            # Calculate ES as average of returns worse than VaR
+            es = returns[returns <= -var].mean()
+            return abs(es)  # Return absolute value
+            
+        except Exception as e:
+            logging.error(f"Error calculating Expected Shortfall: {e}")
+            return float('inf')
+            
+    def update_portfolio_risk(self) -> None:
+        """Update portfolio risk metrics"""
+        try:
+            # Get all open positions
+            positions = mt5.positions_get()
+            if positions is None:
+                return
+                
+            # Calculate total exposure
+            total_exposure = sum(pos.volume * pos.price_current for pos in positions)
+            account_equity = mt5.account_info().equity
+            
+            if account_equity > 0:
+                self.portfolio_exposure = total_exposure / account_equity
+                
+            # Update drawdown
+            if account_equity > self.peak_equity:
+                self.peak_equity = account_equity
+                
+            self.current_drawdown = (self.peak_equity - account_equity) / self.peak_equity
+            self.max_drawdown = max(self.max_drawdown, self.current_drawdown)
+            
+        except Exception as e:
+            logging.error(f"Error updating portfolio risk: {e}")
+            
+    def is_symbol_allowed(self, symbol: str) -> bool:
+        """Check if symbol is allowed for trading"""
+        try:
+            # Check blacklist
+            if symbol in self.risk_params['symbol_blacklist']:
                 return False
                 
-            # Check volume
-            if volume < self.scalping_params['min_liquidity']:
+            # If whitelist exists, only allow whitelisted symbols
+            if self.risk_params['symbol_whitelist']:
+                return symbol in self.risk_params['symbol_whitelist']
+                
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error checking symbol allowance: {e}")
+            return False
+            
+    def log_trade(self, trade_info: Dict) -> None:
+        """Log trade information for risk analysis"""
+        try:
+            self.trade_history.append(trade_info)
+            self.daily_trade_count += 1
+            
+            # Update Kelly fraction periodically
+            if len(self.trade_history) % 10 == 0:
+                self.update_kelly_fraction()
+                
+        except Exception as e:
+            logging.error(f"Error logging trade: {e}")
+            
+    def reset_daily_limits(self) -> None:
+        """Reset daily trading limits"""
+        self.daily_trade_count = 0
+        
+    def check_trade_limits(self) -> bool:
+        """Check if trade limits are exceeded"""
+        try:
+            # Check daily trade count
+            if self.daily_trade_count >= self.risk_params['max_daily_trades']:
+                logging.warning("Daily trade limit reached")
                 return False
                 
-            # Check RSI extremes
-            if not (rsi < self.scalping_params['rsi_oversold'] or rsi > self.scalping_params['rsi_overbought']):
+            # Check capital exposure
+            if self.portfolio_exposure >= self.risk_params['max_capital_exposure']:
+                logging.warning("Maximum capital exposure reached")
+                return False
+                
+            # Check drawdown limit
+            if self.current_drawdown >= self.risk_params['drawdown_limit']:
+                logging.warning("Maximum drawdown limit reached")
                 return False
                 
             return True
             
         except Exception as e:
-            logging.error(f"Error checking scalping conditions: {e}")
+            logging.error(f"Error checking trade limits: {e}")
             return False
             
-    def _check_trend_alignment(self, ema_5: float, ema_20: float) -> bool:
-        """Check if short-term trend aligns with scalping direction"""
+    def update_kelly_fraction(self) -> None:
+        """Update Kelly fraction based on historical performance"""
         try:
-            trend_strength = abs(ema_5 - ema_20) / ema_20
-            return trend_strength >= self.scalping_params['min_trend_strength']
-        except Exception as e:
-            logging.error(f"Error checking trend alignment: {e}")
-            return False
+            if len(self.trade_history) < self.risk_params['min_trades_for_kelly']:
+                return
+                
+            # Calculate win rate and win/loss ratio
+            winning_trades = [t for t in self.trade_history if t['profit'] > 0]
+            win_rate = len(winning_trades) / len(self.trade_history)
             
-    def _calculate_signal_confidence(self, price: float, band: float, rsi: float, rsi_extreme: float) -> float:
-        """Calculate signal confidence based on multiple factors"""
+            if win_rate == 0 or win_rate == 1:
+                return
+                
+            avg_win = np.mean([t['profit'] for t in winning_trades])
+            avg_loss = abs(np.mean([t['profit'] for t in self.trade_history if t['profit'] < 0]))
+            
+            if avg_loss == 0:
+                return
+                
+            # Calculate Kelly fraction
+            kelly = win_rate - ((1 - win_rate) / (avg_win / avg_loss))
+            
+            # Apply bounds
+            kelly = max(self.risk_params['min_kelly_fraction'],
+                       min(self.risk_params['max_kelly_fraction'], kelly))
+            
+            self.risk_params['kelly_fraction'] = kelly
+            logging.info(f"Updated Kelly fraction to: {kelly:.4f}")
+            
+        except Exception as e:
+            logging.error(f"Error updating Kelly fraction: {e}")
+            
+    def run(self):
+        """Main bot execution loop"""
         try:
-            # Price distance from band (0-1)
-            price_confidence = abs(price - band) / band
+            self.running = True
+            logging.info("Bot started successfully")
             
-            # RSI distance from extreme (0-1)
-            rsi_confidence = abs(rsi - rsi_extreme) / rsi_extreme
+            if self.telegram_bot and self.telegram_chat_id:
+                self.telegram_bot.send_message(
+                    self.telegram_chat_id,
+                    "Bot started successfully"
+                )
             
-            # Combine confidences
-            confidence = (price_confidence + rsi_confidence) / 2
-            
-            return min(max(confidence, 0), 1)  # Ensure between 0 and 1
-            
+            while self.running:
+                try:
+                    # Get latest market data
+                    prices = self.get_latest_prices()
+                    
+                    # Update performance metrics
+                    self.update_performance_metrics(prices)
+                    
+                    # Check if it's time to save state
+                    if (datetime.now() - self.last_state_save).total_seconds() > self.state_save_interval:
+                        self.save_state()
+                        self.last_state_save = datetime.now()
+                    
+                    # Sleep for a short interval
+                    time.sleep(1)
+                    
+                except Exception as e:
+                    logging.error(f"Error in main loop: {e}")
+                    time.sleep(5)  # Wait longer on error
+                    
         except Exception as e:
-            logging.error(f"Error calculating signal confidence: {e}")
-            return 0.0
-            
-    def _calculate_stop_loss(self, direction: str, price: float, atr: float) -> float:
-        """Calculate dynamic stop loss based on ATR"""
-        try:
-            if direction == 'buy':
-                return price - (atr * 1.5)  # 1.5 ATR for stop loss
-            else:
-                return price + (atr * 1.5)
-        except Exception as e:
-            logging.error(f"Error calculating stop loss: {e}")
-            return 0.0
-            
-    def _calculate_take_profit(self, direction: str, price: float, atr: float) -> float:
-        """Calculate take profit level"""
-        try:
-            if direction == 'buy':
-                return price + (atr * 3)  # 3 ATR for take profit
-            else:
-                return price - (atr * 3)
-        except Exception as e:
-            logging.error(f"Error calculating take profit: {e}")
-            return 0.0
-            
-    def _calculate_partial_tp(self, direction: str, price: float, atr: float) -> float:
-        """Calculate partial take profit level"""
-        try:
-            full_tp = self._calculate_take_profit(direction, price, atr)
-            if direction == 'buy':
-                return price + ((full_tp - price) * self.scalping_params['partial_tp_ratio'])
-            else:
-                return price - ((price - full_tp) * self.scalping_params['partial_tp_ratio'])
-        except Exception as e:
-            logging.error(f"Error calculating partial take profit: {e}")
-            return 0.0
-            
-    def _calculate_trailing_stop(self, direction: str, price: float, atr: float) -> float:
-        """Calculate trailing stop level"""
-        try:
-            if direction == 'buy':
-                return price - (atr * self.scalping_params['trailing_stop_distance'])
-            else:
-                return price + (atr * self.scalping_params['trailing_stop_distance'])
-        except Exception as e:
-            logging.error(f"Error calculating trailing stop: {e}")
-            return 0.0
+            logging.error(f"Critical error in bot execution: {e}")
+        finally:
+            self.shutdown()
 
-class AdvancedPremiumBot:
-    def __init__(self):
-        self.symbols = []
-        self.positions = {}
-        self.websocket_connections = {}
-        self.tick_data = {}
-        self.quote_history = {}
-        self.order_history = []
-        self.performance_metrics = {}
-        self.risk_parameters = {
-            'max_position_size': 10.0,
-            'max_daily_trades': 50,
-            'max_drawdown_percent': 5.0,
-            'risk_per_trade_percent': 1.0
-        }
-        self.telegram_bot = None
-        self.telegram_chat_id = None
-        self.running = False
-        self.last_state_save = datetime.now()
-        self.state_save_interval = 300  # 5 minutes
-
-    def get_latest_prices(self) -> Dict[str, Dict]:
-        """Get latest prices for all symbols"""
+    def update_performance_metrics(self, prices: Dict[str, Dict]):
+        """Update performance metrics based on current prices"""
         try:
-            prices = {}
-            for symbol in self.symbols:
-                tick = mt5.symbol_info_tick(symbol)
-                if tick is not None:
-                    prices[symbol] = {
-                        'bid': tick.bid,
-                        'ask': tick.ask,
-                        'last': tick.last,
-                        'volume': tick.volume,
-                        'time': datetime.fromtimestamp(tick.time).isoformat()
-                    }
-            return prices
+            # Get account info
+            account_info = mt5.account_info()
+            if account_info is None:
+                logging.error("Failed to get account info")
+                return
+            
+            # Update basic metrics
+            self.performance_metrics.update({
+                'balance': account_info.balance,
+                'equity': account_info.equity,
+                'margin': account_info.margin,
+                'free_margin': account_info.margin_free,
+                'margin_level': account_info.margin_level,
+                'last_update': datetime.now().isoformat()
+            })
+            
+            # Update position metrics
+            positions = mt5.positions_get()
+            if positions is not None:
+                total_profit = sum(pos.profit for pos in positions)
+                self.performance_metrics['total_profit'] = total_profit
+                self.performance_metrics['open_positions'] = len(positions)
+            
+            # Update price metrics
+            for symbol, price_data in prices.items():
+                if symbol not in self.performance_metrics:
+                    self.performance_metrics[symbol] = {}
+                self.performance_metrics[symbol].update(price_data)
+            
         except Exception as e:
-            logging.error(f"Error getting latest prices: {e}")
-            return {}
+            logging.error(f"Error updating performance metrics: {e}")
+
+    def save_state(self):
+        """Save bot state to file"""
+        try:
+            state = {
+                'positions': self.positions,
+                'order_history': self.order_history,
+                'performance_metrics': self.performance_metrics,
+                'risk_parameters': self.risk_params,
+                'last_save': datetime.now().isoformat()
+            }
+            
+            with open('bot_state.json', 'w') as f:
+                json.dump(state, f, default=str)
+            
+            logging.info("Bot state saved successfully")
+        except Exception as e:
+            logging.error(f"Error saving bot state: {e}")
 
     def shutdown(self):
-        """Gracefully shutdown the bot"""
+        """Shutdown the bot"""
         try:
-            self.running = False
-            
-            # Close all open positions
-            for symbol, position in self.positions.items():
-                try:
-                    self.close_position(symbol)
-                except Exception as e:
-                    logging.error(f"Error closing position for {symbol}: {e}")
-            
             # Close all WebSocket connections
             for symbol, ws in self.websocket_connections.items():
                 try:
@@ -1620,4 +1782,655 @@ class AdvancedPremiumBot:
         except Exception as e:
             logging.error(f"Error during shutdown: {e}")
         finally:
-            print("\nBot shutdown complete.") 
+            print("\nBot shutdown complete.")
+
+    def __init__(self, config: Dict):
+        """Initialize the bot with configuration parameters"""
+        super().__init__(config)
+        
+        # Spread and liquidity parameters
+        self.spread_params = {
+            'max_spread_pips': 3.0,           # Maximum allowed spread in pips
+            'min_liquidity_volume': 1000,     # Minimum volume for trading
+            'thin_liquidity_hours': [         # Hours to avoid trading (UTC)
+                (0, 2),    # Early morning
+                (21, 24)   # Late night
+            ],
+            'spread_lookback': 100,           # Number of ticks to analyze spread
+            'spread_threshold': 1.5,          # Spread threshold multiplier
+            'min_tick_volume': 10             # Minimum volume per tick
+        }
+        
+        # Slippage tracking
+        self.slippage_history = {
+            'total_trades': 0,
+            'total_slippage': 0.0,
+            'max_slippage': 0.0,
+            'slippage_reasons': {},
+            'recent_trades': deque(maxlen=100)  # Keep last 100 trades
+        }
+        
+        # Price provider configuration
+        self.price_providers = {
+            'primary': 'mt5',                 # Primary price source
+            'fallback': 'websocket',          # Fallback price source
+            'backup': 'rest_api',             # Backup price source
+            'provider_priority': ['mt5', 'websocket', 'rest_api'],
+            'price_timeout': 1.0,             # Timeout for price updates
+            'max_price_difference': 0.0002    # Maximum allowed price difference
+        }
+        
+        # Tick data storage
+        self.tick_data = {
+            'last_tick': None,
+            'tick_history': deque(maxlen=1000),  # Store last 1000 ticks
+            'last_update': None,
+            'tick_interval': 0.1              # Minimum time between ticks (seconds)
+        }
+        
+        # Initialize price providers
+        self._initialize_price_providers()
+        
+    def _initialize_price_providers(self) -> None:
+        """Initialize different price providers"""
+        try:
+            # Initialize MT5 socket connection
+            if not mt5.initialize():
+                logging.error("Failed to initialize MT5")
+                
+            # Initialize WebSocket connection
+            self._initialize_websocket()
+            
+            # Initialize REST API connection
+            self._initialize_rest_api()
+            
+        except Exception as e:
+            logging.error(f"Error initializing price providers: {e}")
+            
+    def _initialize_websocket(self) -> None:
+        """Initialize WebSocket connection for tick data"""
+        try:
+            # Create WebSocket connection
+            self.ws = websocket.WebSocketApp(
+                f"wss://stream.binance.com:9443/ws/{self.symbol.lower()}@ticker",
+                on_message=self._on_websocket_message,
+                on_error=self._on_websocket_error,
+                on_close=self._on_websocket_close
+            )
+            
+            # Start WebSocket in a separate thread
+            ws_thread = threading.Thread(target=self.ws.run_forever)
+            ws_thread.daemon = True
+            ws_thread.start()
+            
+        except Exception as e:
+            logging.error(f"Error initializing WebSocket: {e}")
+            
+    def _initialize_rest_api(self) -> None:
+        """Initialize REST API connection for backup price data"""
+        try:
+            # Initialize REST API client
+            self.rest_client = requests.Session()
+            self.rest_client.headers.update({
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            })
+            
+        except Exception as e:
+            logging.error(f"Error initializing REST API: {e}")
+            
+    def get_current_price(self) -> Optional[Dict]:
+        """Get current price from available providers"""
+        try:
+            prices = {}
+            
+            # Try primary provider (MT5)
+            if self.price_providers['primary'] == 'mt5':
+                tick = mt5.symbol_info_tick(self.symbol)
+                if tick is not None:
+                    prices['mt5'] = {
+                        'bid': tick.bid,
+                        'ask': tick.ask,
+                        'last': tick.last,
+                        'volume': tick.volume,
+                        'time': tick.time
+                    }
+                    
+            # Try fallback provider (WebSocket)
+            if not prices and self.price_providers['fallback'] == 'websocket':
+                ws_price = self._get_websocket_price()
+                if ws_price:
+                    prices['websocket'] = ws_price
+                    
+            # Try backup provider (REST API)
+            if not prices and self.price_providers['backup'] == 'rest_api':
+                api_price = self._get_rest_api_price()
+                if api_price:
+                    prices['rest_api'] = api_price
+                    
+            if not prices:
+                logging.error("No price data available from any provider")
+                return None
+                
+            # Select best price based on priority
+            for provider in self.price_providers['provider_priority']:
+                if provider in prices:
+                    return prices[provider]
+                    
+            return None
+            
+        except Exception as e:
+            logging.error(f"Error getting current price: {e}")
+            return None
+            
+    def _get_websocket_price(self) -> Optional[Dict]:
+        """Get price from WebSocket"""
+        try:
+            if not hasattr(self, 'last_ws_price'):
+                return None
+                
+            # Check if price is recent enough
+            if time.time() - self.last_ws_price['time'] > self.price_providers['price_timeout']:
+                return None
+                
+            return self.last_ws_price
+            
+        except Exception as e:
+            logging.error(f"Error getting WebSocket price: {e}")
+            return None
+            
+    def _get_rest_api_price(self) -> Optional[Dict]:
+        """Get price from REST API"""
+        try:
+            response = self.rest_client.get(f"https://api.binance.com/api/v3/ticker/price?symbol={self.symbol}")
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'bid': float(data['price']),
+                    'ask': float(data['price']),
+                    'last': float(data['price']),
+                    'volume': 0,  # Not available in this API
+                    'time': time.time()
+                }
+            return None
+            
+        except Exception as e:
+            logging.error(f"Error getting REST API price: {e}")
+            return None
+            
+    def check_spread_and_liquidity(self) -> bool:
+        """Check if spread and liquidity conditions are acceptable"""
+        try:
+            # Get current tick
+            tick = mt5.symbol_info_tick(self.symbol)
+            if tick is None:
+                return False
+                
+            # Calculate spread in pips
+            spread = (tick.ask - tick.bid) * 10000  # Convert to pips
+            if spread > self.spread_params['max_spread_pips']:
+                logging.warning(f"Spread too high: {spread:.1f} pips")
+                return False
+                
+            # Check tick volume
+            if tick.volume < self.spread_params['min_tick_volume']:
+                logging.warning(f"Tick volume too low: {tick.volume}")
+                return False
+                
+            # Check for thin liquidity hours
+            current_hour = datetime.now().hour
+            for start_hour, end_hour in self.spread_params['thin_liquidity_hours']:
+                if start_hour <= current_hour < end_hour:
+                    logging.warning("Trading in thin liquidity hours")
+                    return False
+                    
+            # Analyze recent spread history
+            if len(self.tick_data['tick_history']) >= self.spread_params['spread_lookback']:
+                recent_spreads = [(t.ask - t.bid) * 10000 for t in self.tick_data['tick_history']]
+                avg_spread = sum(recent_spreads) / len(recent_spreads)
+                if spread > avg_spread * self.spread_params['spread_threshold']:
+                    logging.warning(f"Spread significantly above average: {spread:.1f} vs {avg_spread:.1f} pips")
+                    return False
+                    
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error checking spread and liquidity: {e}")
+            return False
+            
+    def track_slippage(self, order_type: str, intended_price: float, executed_price: float) -> None:
+        """Track and analyze order slippage"""
+        try:
+            # Calculate slippage percentage
+            slippage = abs(executed_price - intended_price) / intended_price * 100
+            
+            # Update slippage history
+            self.slippage_history['total_trades'] += 1
+            self.slippage_history['total_slippage'] += slippage
+            self.slippage_history['max_slippage'] = max(
+                self.slippage_history['max_slippage'],
+                slippage
+            )
+            
+            # Determine slippage reason
+            reason = self._determine_slippage_reason(slippage, order_type)
+            if reason not in self.slippage_history['slippage_reasons']:
+                self.slippage_history['slippage_reasons'][reason] = 0
+            self.slippage_history['slippage_reasons'][reason] += 1
+            
+            # Add to recent trades
+            self.slippage_history['recent_trades'].append({
+                'time': time.time(),
+                'order_type': order_type,
+                'intended_price': intended_price,
+                'executed_price': executed_price,
+                'slippage': slippage,
+                'reason': reason
+            })
+            
+            # Log slippage if significant
+            if slippage > 0.1:  # More than 0.1% slippage
+                logging.warning(f"Significant slippage detected: {slippage:.3f}% ({reason})")
+                
+        except Exception as e:
+            logging.error(f"Error tracking slippage: {e}")
+            
+    def _determine_slippage_reason(self, slippage: float, order_type: str) -> str:
+        """Determine the most likely reason for slippage"""
+        try:
+            # Get current market conditions
+            tick = mt5.symbol_info_tick(self.symbol)
+            if tick is None:
+                return "unknown"
+                
+            # Check spread
+            spread = (tick.ask - tick.bid) * 10000
+            if spread > self.spread_params['max_spread_pips']:
+                return "high_spread"
+                
+            # Check volume
+            if tick.volume < self.spread_params['min_tick_volume']:
+                return "low_volume"
+                
+            # Check volatility
+            if len(self.tick_data['tick_history']) >= 10:
+                recent_prices = [t.last for t in self.tick_data['tick_history']]
+                volatility = np.std(recent_prices) / np.mean(recent_prices) * 100
+                if volatility > 0.5:  # More than 0.5% volatility
+                    return "high_volatility"
+                    
+            # Check time of day
+            current_hour = datetime.now().hour
+            for start_hour, end_hour in self.spread_params['thin_liquidity_hours']:
+                if start_hour <= current_hour < end_hour:
+                    return "thin_liquidity"
+                    
+            return "normal_market_conditions"
+            
+        except Exception as e:
+            logging.error(f"Error determining slippage reason: {e}")
+            return "unknown"
+            
+    def calculate_dynamic_deviation(self) -> int:
+        """Calculate dynamic deviation based on market conditions"""
+        try:
+            # Base deviation
+            deviation = 10  # Default deviation
+            
+            # Adjust based on volatility
+            if len(self.tick_data['tick_history']) >= 10:
+                recent_prices = [t.last for t in self.tick_data['tick_history']]
+                volatility = np.std(recent_prices) / np.mean(recent_prices) * 100
+                
+                if volatility > 1.0:  # High volatility
+                    deviation = int(deviation * 1.5)
+                elif volatility < 0.2:  # Low volatility
+                    deviation = int(deviation * 0.8)
+                    
+            # Adjust based on spread
+            tick = mt5.symbol_info_tick(self.symbol)
+            if tick is not None:
+                spread = (tick.ask - tick.bid) * 10000
+                if spread > self.spread_params['max_spread_pips'] * 0.8:
+                    deviation = int(deviation * 1.2)
+                    
+            # Ensure deviation is within reasonable limits
+            deviation = max(5, min(deviation, 50))
+            
+            return deviation
+            
+        except Exception as e:
+            logging.error(f"Error calculating dynamic deviation: {e}")
+            return 10  # Return default on error 
+
+    def _check_scalping_conditions(self, volatility: float, volume: float, rsi: float) -> bool:
+        """Check if market conditions are suitable for scalping"""
+        try:
+            # Check volatility range
+            if not (self.scalping_params['min_volatility'] <= volatility <= self.scalping_params['max_volatility']):
+                return False
+                
+            # Check minimum liquidity
+            if volume < self.scalping_params['min_liquidity']:
+                return False
+                
+            # Check RSI extremes
+            if rsi < self.scalping_params['rsi_oversold'] or rsi > self.scalping_params['rsi_overbought']:
+                return False
+                
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error checking scalping conditions: {e}")
+            return False
+            
+    def _check_multi_timeframe_trend(self) -> bool:
+        """Check trend alignment across multiple timeframes"""
+        try:
+            # Get data for different timeframes
+            m1_data = self.get_historical_data(self.symbol, 'M1', 100)
+            m5_data = self.get_historical_data(self.symbol, 'M5', 100)
+            h1_data = self.get_historical_data(self.symbol, 'H1', 100)
+            
+            if m1_data is None or m5_data is None or h1_data is None:
+                return False
+                
+            # Calculate trend direction for each timeframe
+            m1_trend = self._calculate_trend_direction(m1_data)
+            m5_trend = self._calculate_trend_direction(m5_data)
+            h1_trend = self._calculate_trend_direction(h1_data)
+            
+            # Check if trends are aligned
+            return m1_trend == m5_trend == h1_trend
+            
+        except Exception as e:
+            logging.error(f"Error checking multi-timeframe trend: {e}")
+            return False
+            
+    def _check_volume_spike(self, current_volume: float, volume_history: pd.Series) -> bool:
+        """Check for significant volume spike"""
+        try:
+            # Calculate average volume
+            avg_volume = volume_history.rolling(window=self.scalping_params['volume_lookback']).mean().iloc[-1]
+            
+            # Check if current volume is significantly higher
+            return current_volume >= avg_volume * self.scalping_params['volume_spike_threshold']
+            
+        except Exception as e:
+            logging.error(f"Error checking volume spike: {e}")
+            return False
+            
+    def _calculate_dynamic_position_size(self, direction: str, current_price: float, atr: float, volatility: float) -> float:
+        """Calculate position size based on volatility and market conditions"""
+        try:
+            # Base position size
+            position_size = self.scalping_params['base_position_size']
+            
+            # Adjust for volatility
+            if volatility > self.scalping_params['max_volatility'] * 0.8:
+                position_size *= 0.5
+            elif volatility < self.scalping_params['min_volatility'] * 1.2:
+                position_size *= 1.2
+                
+            # Adjust for ATR
+            atr_multiplier = 1.0 - (atr / current_price)
+            position_size *= max(0.5, min(1.5, atr_multiplier))
+            
+            # Ensure within limits
+            position_size = max(self.scalping_params['min_position_size'],
+                              min(self.scalping_params['max_position_size'], position_size))
+                              
+            return position_size
+            
+        except Exception as e:
+            logging.error(f"Error calculating dynamic position size: {e}")
+            return self.scalping_params['base_position_size']
+            
+    def _calculate_stop_loss(self, direction: str, current_price: float, atr: float) -> float:
+        """Calculate stop loss level"""
+        try:
+            # Base stop loss distance
+            stop_distance = atr * 2.0
+            
+            # Adjust for direction
+            if direction == 'buy':
+                return current_price - stop_distance
+            else:
+                return current_price + stop_distance
+                
+        except Exception as e:
+            logging.error(f"Error calculating stop loss: {e}")
+            return 0.0
+            
+    def _calculate_take_profit(self, direction: str, current_price: float, atr: float) -> float:
+        """Calculate take profit level"""
+        try:
+            # Base take profit distance (3:1 risk-reward)
+            tp_distance = atr * 6.0
+            
+            # Adjust for direction
+            if direction == 'buy':
+                return current_price + tp_distance
+            else:
+                return current_price - tp_distance
+                
+        except Exception as e:
+            logging.error(f"Error calculating take profit: {e}")
+            return 0.0
+            
+    def _calculate_partial_tp(self, direction: str, current_price: float, atr: float) -> float:
+        """Calculate partial take profit level"""
+        try:
+            # Partial take profit at 1.5:1 risk-reward
+            tp_distance = atr * 3.0
+            
+            # Adjust for direction
+            if direction == 'buy':
+                return current_price + tp_distance
+            else:
+                return current_price - tp_distance
+                
+        except Exception as e:
+            logging.error(f"Error calculating partial take profit: {e}")
+            return 0.0
+            
+    def _calculate_trailing_stop(self, direction: str, current_price: float, atr: float) -> float:
+        """Calculate trailing stop level"""
+        try:
+            # Base trailing stop distance
+            stop_distance = atr * 1.5
+            
+            # Adjust for direction
+            if direction == 'buy':
+                return current_price - stop_distance
+            else:
+                return current_price + stop_distance
+                
+        except Exception as e:
+            logging.error(f"Error calculating trailing stop: {e}")
+            return 0.0
+            
+    def _calculate_trend_direction(self, df: pd.DataFrame) -> str:
+        """Calculate trend direction based on EMAs"""
+        try:
+            # Get EMAs
+            ema_fast = df['ema_5'].iloc[-1]
+            ema_slow = df['ema_20'].iloc[-1]
+            
+            # Determine trend
+            if ema_fast > ema_slow:
+                return 'buy'
+            else:
+                return 'sell'
+                
+        except Exception as e:
+            logging.error(f"Error calculating trend direction: {e}")
+            return None
+
+class MarketHours:
+    def __init__(self):
+        # Define market sessions (UTC)
+        self.sessions = {
+            'london': {
+                'open': (7, 0),    # 7:00 UTC
+                'close': (16, 0),  # 16:00 UTC
+                'name': 'London'
+            },
+            'new_york': {
+                'open': (13, 0),   # 13:00 UTC
+                'close': (22, 0),  # 22:00 UTC
+                'name': 'New York'
+            },
+            'tokyo': {
+                'open': (0, 0),    # 00:00 UTC
+                'close': (9, 0),   # 09:00 UTC
+                'name': 'Tokyo'
+            },
+            'sydney': {
+                'open': (22, 0),   # 22:00 UTC (previous day)
+                'close': (7, 0),   # 07:00 UTC
+                'name': 'Sydney'
+            }
+        }
+        
+        # Define high volatility periods
+        self.high_volatility_periods = [
+            ((13, 0), (15, 0)),  # London-New York overlap
+            ((7, 0), (9, 0)),    # London open
+            ((13, 0), (14, 0)),  # New York open
+            ((0, 0), (1, 0)),    # Tokyo open
+            ((22, 0), (23, 0))   # Sydney open
+        ]
+        
+        # Define low liquidity periods
+        self.low_liquidity_periods = [
+            ((21, 0), (22, 0)),  # End of New York session
+            ((5, 0), (7, 0)),    # Between Tokyo close and London open
+            ((15, 0), (16, 0)),  # End of London session
+            ((9, 0), (10, 0))    # End of Tokyo session
+        ]
+        
+    def is_market_open(self) -> bool:
+        """Check if any major market is currently open"""
+        current_time = datetime.now().time()
+        current_hour = current_time.hour
+        current_minute = current_time.minute
+        
+        for session in self.sessions.values():
+            open_hour, open_minute = session['open']
+            close_hour, close_minute = session['close']
+            
+            # Handle sessions that cross midnight
+            if close_hour < open_hour:
+                if (current_hour > open_hour or 
+                    (current_hour == open_hour and current_minute >= open_minute) or
+                    current_hour < close_hour or
+                    (current_hour == close_hour and current_minute < close_minute)):
+                    return True
+            else:
+                if (current_hour > open_hour or 
+                    (current_hour == open_hour and current_minute >= open_minute)) and \
+                   (current_hour < close_hour or
+                    (current_hour == close_hour and current_minute < close_minute)):
+                    return True
+                    
+        return False
+        
+    def is_high_volatility_period(self) -> bool:
+        """Check if current time is during a high volatility period"""
+        current_time = datetime.now().time()
+        current_hour = current_time.hour
+        current_minute = current_time.minute
+        
+        for start, end in self.high_volatility_periods:
+            start_hour, start_minute = start
+            end_hour, end_minute = end
+            
+            if (current_hour > start_hour or 
+                (current_hour == start_hour and current_minute >= start_minute)) and \
+               (current_hour < end_hour or
+                (current_hour == end_hour and current_minute < end_minute)):
+                return True
+                
+        return False
+        
+    def is_low_liquidity_period(self) -> bool:
+        """Check if current time is during a low liquidity period"""
+        current_time = datetime.now().time()
+        current_hour = current_time.hour
+        current_minute = current_time.minute
+        
+        for start, end in self.low_liquidity_periods:
+            start_hour, start_minute = start
+            end_hour, end_minute = end
+            
+            if (current_hour > start_hour or 
+                (current_hour == start_hour and current_minute >= start_minute)) and \
+               (current_hour < end_hour or
+                (current_hour == end_hour and current_minute < end_minute)):
+                return True
+                
+        return False
+        
+    def get_active_sessions(self) -> List[str]:
+        """Get list of currently active market sessions"""
+        active_sessions = []
+        current_time = datetime.now().time()
+        current_hour = current_time.hour
+        current_minute = current_time.minute
+        
+        for session_name, session in self.sessions.items():
+            open_hour, open_minute = session['open']
+            close_hour, close_minute = session['close']
+            
+            # Handle sessions that cross midnight
+            if close_hour < open_hour:
+                if (current_hour > open_hour or 
+                    (current_hour == open_hour and current_minute >= open_minute) or
+                    current_hour < close_hour or
+                    (current_hour == close_hour and current_minute < close_minute)):
+                    active_sessions.append(session['name'])
+            else:
+                if (current_hour > open_hour or 
+                    (current_hour == open_hour and current_minute >= open_minute)) and \
+                   (current_hour < close_hour or
+                    (current_hour == close_hour and current_minute < close_minute)):
+                    active_sessions.append(session['name'])
+                    
+        return active_sessions
+        
+    def get_next_session_change(self) -> Tuple[str, datetime]:
+        """Get the next market session change"""
+        current_time = datetime.now()
+        next_change = None
+        next_session = None
+        
+        for session in self.sessions.values():
+            open_time = current_time.replace(
+                hour=session['open'][0],
+                minute=session['open'][1],
+                second=0,
+                microsecond=0
+            )
+            close_time = current_time.replace(
+                hour=session['close'][0],
+                minute=session['close'][1],
+                second=0,
+                microsecond=0
+            )
+            
+            # Handle sessions that cross midnight
+            if close_time < open_time:
+                close_time += timedelta(days=1)
+                
+            # Check if session is about to open
+            if open_time > current_time and (next_change is None or open_time < next_change):
+                next_change = open_time
+                next_session = f"{session['name']} Open"
+                
+            # Check if session is about to close
+            if close_time > current_time and (next_change is None or close_time < next_change):
+                next_change = close_time
+                next_session = f"{session['name']} Close"
+                
+        return next_session, next_change

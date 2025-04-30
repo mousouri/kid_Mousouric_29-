@@ -36,6 +36,7 @@ from ctypes import cdll, c_double, c_int, c_char_p, POINTER
 import statistics
 from collections import deque
 from trading_optimizer import calculate_twap as py_calculate_twap, optimize_order_split as py_optimize_order_split
+from telegram_notifier import TelegramNotifier
 
 # Configure logging to suppress the C++ library warning
 logging.getLogger().setLevel(logging.ERROR)
@@ -1489,7 +1490,7 @@ class StrategyManager:
             'momentum_window': 5,        # Momentum calculation window
             'volume_momentum_window': 5, # Volume momentum window
             'volume_spike_threshold': 2.0, # Volume spike threshold (x average)
-            'volume_lookback': 20,       # Volume lookback period
+            'vol"TelegramNotifier" is not definedume_lookback': 20,       # Volume lookback period
             'ema_fast': 5,               # Fast EMA period
             'ema_slow': 20,              # Slow EMA period
             'pullback_threshold': 0.001,  # Pullback threshold
@@ -1980,741 +1981,428 @@ class StrategyManager:
         finally:
             print("\nBot shutdown complete.")
 
-    def __init__(self, config: Dict):
+    def __init__(self, config: Dict = None):
         """Initialize the bot with configuration parameters"""
-        super().__init__(config)
+        # Default configuration
+        default_config = {
+            'telegram_bot_token': "7465051685:AAGA7xL0KGRYVmOHgObaIrmIcv1RZnHf6AM",
+            'telegram_chat_id': "6108013670",
+            'max_daily_trades': 10,
+            'max_capital_exposure': 0.1,  # 10% of account
+            'risk_per_trade': 0.01,  # 1% per trade
+            'max_drawdown': 0.05,  # 5% max drawdown
+            'state_save_interval': 3600,  # 1 hour
+            'trading_hours': {
+                'start': '08:00',
+                'end': '20:00'
+            },
+            'symbols': ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'EURJPY', 'GBPJPY'],
+            'timeframes': ['M1', 'M5', 'M15', 'H1', 'H4'],
+            'indicators': {
+                'rsi_period': 14,
+                'ema_fast': 9,
+                'ema_slow': 21,
+                'atr_period': 14
+            }
+        }
+        
+        # Merge provided config with default config
+        self.config = default_config.copy()
+        if config:
+            self.config.update(config)
         
         # Initialize currency pair manager
         self.pair_manager = CurrencyPairManager()
         
-        # Spread and liquidity parameters
-        self.spread_params = {
-            'max_spread_pips': 3.0,           # Maximum allowed spread in pips
-            'min_liquidity_volume': 1000,     # Minimum volume for trading
-            'thin_liquidity_hours': [         # Hours to avoid trading (UTC)
-                (0, 2),    # Early morning
-                (21, 24)   # Late night
-            ],
-            'spread_lookback': 100,           # Number of ticks to analyze spread
-            'spread_threshold': 1.5,          # Spread threshold multiplier
-            'min_tick_volume': 10             # Minimum volume per tick
-        }
+        # Initialize Telegram notifier with credentials
+        self.telegram_notifier = TelegramNotifier(
+            bot_token=self.config['telegram_bot_token'],
+            chat_id=self.config['telegram_chat_id']
+        )
         
-        # Slippage tracking
-        self.slippage_history = {
+        # Initialize other components
+        self.risk_manager = RiskManager()
+        self.strategy_manager = StrategyManager()
+        self.order_router = OrderRouter()
+        
+        # Performance tracking
+        self.trade_history = []
+        self.performance_metrics = {
             'total_trades': 0,
-            'total_slippage': 0.0,
-            'max_slippage': 0.0,
-            'slippage_reasons': {},
-            'recent_trades': deque(maxlen=100)  # Keep last 100 trades
+            'winning_trades': 0,
+            'total_profit': 0.0,
+            'max_drawdown': 0.0,
+            'current_drawdown': 0.0,
+            'win_rate': 0.0,
+            'average_profit': 0.0,
+            'best_trade': 0.0,
+            'worst_trade': 0.0
         }
         
-        # Price provider configuration
-        self.price_providers = {
-            'primary': 'mt5',                 # Primary price source
-            'fallback': 'websocket',          # Fallback price source
-            'backup': 'rest_api',             # Backup price source
-            'provider_priority': ['mt5', 'websocket', 'rest_api'],
-            'price_timeout': 1.0,             # Timeout for price updates
-            'max_price_difference': 0.0002    # Maximum allowed price difference
-        }
-        
-        # Tick data storage
-        self.tick_data = {
-            'last_tick': None,
-            'tick_history': deque(maxlen=1000),  # Store last 1000 ticks
-            'last_update': None,
-            'tick_interval': 0.1              # Minimum time between ticks (seconds)
-        }
+        # State management
+        self.last_state_save = datetime.now()
+        self.state_save_interval = self.config['state_save_interval']
+        self.running = False
         
         # Initialize price providers
         self._initialize_price_providers()
         
-    def _initialize_price_providers(self) -> None:
-        """Initialize different price providers"""
-        try:
-            # Initialize MT5 socket connection
-            if not mt5.initialize():
-                logging.error("Failed to initialize MT5")
-                
-            # Initialize WebSocket connection
-            self._initialize_websocket()
-            
-            # Initialize REST API connection
-            self._initialize_rest_api()
-            
-        except Exception as e:
-            logging.error(f"Error initializing price providers: {e}")
-            
-    def _initialize_websocket(self) -> None:
-        """Initialize WebSocket connection for tick data"""
-        try:
-            # Create WebSocket connection
-            self.ws = websocket.WebSocketApp(
-                f"wss://stream.binance.com:9443/ws/{self.symbol.lower()}@ticker",
-                on_message=self._on_websocket_message,
-                on_error=self._on_websocket_error,
-                on_close=self._on_websocket_close
-            )
-            
-            # Start WebSocket in a separate thread
-            ws_thread = threading.Thread(target=self.ws.run_forever)
-            ws_thread.daemon = True
-            ws_thread.start()
-            
-        except Exception as e:
-            logging.error(f"Error initializing WebSocket: {e}")
-            
-    def _initialize_rest_api(self) -> None:
-        """Initialize REST API connection for backup price data"""
-        try:
-            # Initialize REST API client
-            self.rest_client = requests.Session()
-            self.rest_client.headers.update({
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            })
-            
-        except Exception as e:
-            logging.error(f"Error initializing REST API: {e}")
-            
-    def get_current_price(self) -> Optional[Dict]:
-        """Get current price from available providers"""
-        try:
-            prices = {}
-            
-            # Try primary provider (MT5)
-            if self.price_providers['primary'] == 'mt5':
-                tick = mt5.symbol_info_tick(self.symbol)
-                if tick is not None:
-                    prices['mt5'] = {
-                        'bid': tick.bid,
-                        'ask': tick.ask,
-                        'last': tick.last,
-                        'volume': tick.volume,
-                        'time': tick.time
-                    }
-                    
-            # Try fallback provider (WebSocket)
-            if not prices and self.price_providers['fallback'] == 'websocket':
-                ws_price = self._get_websocket_price()
-                if ws_price:
-                    prices['websocket'] = ws_price
-                    
-            # Try backup provider (REST API)
-            if not prices and self.price_providers['backup'] == 'rest_api':
-                api_price = self._get_rest_api_price()
-                if api_price:
-                    prices['rest_api'] = api_price
-                    
-            if not prices:
-                logging.error("No price data available from any provider")
-                return None
-                
-            # Select best price based on priority
-            for provider in self.price_providers['provider_priority']:
-                if provider in prices:
-                    return prices[provider]
-                    
-            return None
-            
-        except Exception as e:
-            logging.error(f"Error getting current price: {e}")
-            return None
-            
-    def _get_websocket_price(self) -> Optional[Dict]:
-        """Get price from WebSocket"""
-        try:
-            if not hasattr(self, 'last_ws_price'):
-                return None
-                
-            # Check if price is recent enough
-            if time.time() - self.last_ws_price['time'] > self.price_providers['price_timeout']:
-                return None
-                
-            return self.last_ws_price
-            
-        except Exception as e:
-            logging.error(f"Error getting WebSocket price: {e}")
-            return None
-            
-    def _get_rest_api_price(self) -> Optional[Dict]:
-        """Get price from REST API"""
-        try:
-            response = self.rest_client.get(f"https://api.binance.com/api/v3/ticker/price?symbol={self.symbol}")
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    'bid': float(data['price']),
-                    'ask': float(data['price']),
-                    'last': float(data['price']),
-                    'volume': 0,  # Not available in this API
-                    'time': time.time()
-                }
-            return None
-            
-        except Exception as e:
-            logging.error(f"Error getting REST API price: {e}")
-            return None
-            
-    def check_spread_and_liquidity(self) -> bool:
-        """Check if spread and liquidity conditions are acceptable"""
-        try:
-            # Get current tick
-            tick = mt5.symbol_info_tick(self.symbol)
-            if tick is None:
-                return False
-                
-            # Calculate spread in pips
-            spread = (tick.ask - tick.bid) * 10000  # Convert to pips
-            if spread > self.spread_params['max_spread_pips']:
-                logging.warning(f"Spread too high: {spread:.1f} pips")
-                return False
-                
-            # Check tick volume
-            if tick.volume < self.spread_params['min_tick_volume']:
-                logging.warning(f"Tick volume too low: {tick.volume}")
-                return False
-                
-            # Check for thin liquidity hours
-            current_hour = datetime.now().hour
-            for start_hour, end_hour in self.spread_params['thin_liquidity_hours']:
-                if start_hour <= current_hour < end_hour:
-                    logging.warning("Trading in thin liquidity hours")
-                    return False
-                    
-            # Analyze recent spread history
-            if len(self.tick_data['tick_history']) >= self.spread_params['spread_lookback']:
-                recent_spreads = [(t.ask - t.bid) * 10000 for t in self.tick_data['tick_history']]
-                avg_spread = sum(recent_spreads) / len(recent_spreads)
-                if spread > avg_spread * self.spread_params['spread_threshold']:
-                    logging.warning(f"Spread significantly above average: {spread:.1f} vs {avg_spread:.1f} pips")
-                    return False
-                    
-            return True
-            
-        except Exception as e:
-            logging.error(f"Error checking spread and liquidity: {e}")
-            return False
-            
-    def track_slippage(self, order_type: str, intended_price: float, executed_price: float) -> None:
-        """Track and analyze order slippage"""
-        try:
-            # Calculate slippage percentage
-            slippage = abs(executed_price - intended_price) / intended_price * 100
-            
-            # Update slippage history
-            self.slippage_history['total_trades'] += 1
-            self.slippage_history['total_slippage'] += slippage
-            self.slippage_history['max_slippage'] = max(
-                self.slippage_history['max_slippage'],
-                slippage
-            )
-            
-            # Determine slippage reason
-            reason = self._determine_slippage_reason(slippage, order_type)
-            if reason not in self.slippage_history['slippage_reasons']:
-                self.slippage_history['slippage_reasons'][reason] = 0
-            self.slippage_history['slippage_reasons'][reason] += 1
-            
-            # Add to recent trades
-            self.slippage_history['recent_trades'].append({
-                'time': time.time(),
-                'order_type': order_type,
-                'intended_price': intended_price,
-                'executed_price': executed_price,
-                'slippage': slippage,
-                'reason': reason
-            })
-            
-            # Log slippage if significant
-            if slippage > 0.1:  # More than 0.1% slippage
-                logging.warning(f"Significant slippage detected: {slippage:.3f}% ({reason})")
-                
-        except Exception as e:
-            logging.error(f"Error tracking slippage: {e}")
-            
-    def _determine_slippage_reason(self, slippage: float, order_type: str) -> str:
-        """Determine the most likely reason for slippage"""
-        try:
-            # Get current market conditions
-            tick = mt5.symbol_info_tick(self.symbol)
-            if tick is None:
-                return "unknown"
-                
-            # Check spread
-            spread = (tick.ask - tick.bid) * 10000
-            if spread > self.spread_params['max_spread_pips']:
-                return "high_spread"
-                
-            # Check volume
-            if tick.volume < self.spread_params['min_tick_volume']:
-                return "low_volume"
-                
-            # Check volatility
-            if len(self.tick_data['tick_history']) >= 10:
-                recent_prices = [t.last for t in self.tick_data['tick_history']]
-                volatility = np.std(recent_prices) / np.mean(recent_prices) * 100
-                if volatility > 0.5:  # More than 0.5% volatility
-                    return "high_volatility"
-                    
-            # Check time of day
-            current_hour = datetime.now().hour
-            for start_hour, end_hour in self.spread_params['thin_liquidity_hours']:
-                if start_hour <= current_hour < end_hour:
-                    return "thin_liquidity"
-                    
-            return "normal_market_conditions"
-            
-        except Exception as e:
-            logging.error(f"Error determining slippage reason: {e}")
-            return "unknown"
-            
-    def calculate_dynamic_deviation(self) -> int:
-        """Calculate dynamic deviation based on market conditions"""
-        try:
-            # Base deviation
-            deviation = 10  # Default deviation
-            
-            # Adjust based on volatility
-            if len(self.tick_data['tick_history']) >= 10:
-                recent_prices = [t.last for t in self.tick_data['tick_history']]
-                volatility = np.std(recent_prices) / np.mean(recent_prices) * 100
-                
-                if volatility > 1.0:  # High volatility
-                    deviation = int(deviation * 1.5)
-                elif volatility < 0.2:  # Low volatility
-                    deviation = int(deviation * 0.8)
-                    
-            # Adjust based on spread
-            tick = mt5.symbol_info_tick(self.symbol)
-            if tick is not None:
-                spread = (tick.ask - tick.bid) * 10000
-                if spread > self.spread_params['max_spread_pips'] * 0.8:
-                    deviation = int(deviation * 1.2)
-                    
-            # Ensure deviation is within reasonable limits
-            deviation = max(5, min(deviation, 50))
-            
-            return deviation
-            
-        except Exception as e:
-            logging.error(f"Error calculating dynamic deviation: {e}")
-            return 10  # Return default on error 
+        logging.info("Bot initialized with configuration")
 
-    def _check_scalping_conditions(self, volatility: float, volume: float, rsi: float) -> bool:
-        """Check if market conditions are suitable for scalping"""
+    async def run(self):
+        """Main bot execution loop"""
         try:
-            # Check volatility range
-            if not (self.scalping_params['min_volatility'] <= volatility <= self.scalping_params['max_volatility']):
-                return False
-                
-            # Check minimum liquidity
-            if volume < self.scalping_params['min_liquidity']:
-                return False
-                
-            # Check RSI extremes
-            if rsi < self.scalping_params['rsi_oversold'] or rsi > self.scalping_params['rsi_overbought']:
-                return False
-                
-            return True
+            self.running = True
+            logging.info("Bot started successfully")
             
+            # Send startup notifications
+            await self.telegram_notifier.send_market_insight()
+            await self.telegram_notifier.send_quote()
+            await self.telegram_notifier.send_joke()
+            await self.telegram_notifier.send_meme()
+            await self.telegram_notifier.send_trivia()
+            await self.telegram_notifier.send_term_of_the_day()
+            
+            while self.running:
+                try:
+                    # Get current session
+                    current_session = self.pair_manager._get_current_session()
+                    
+                    # Get best pairs for current session
+                    best_pairs = self.pair_manager.get_best_pairs_for_session(current_session)
+                    
+                    # Process each pair
+                    for symbol in best_pairs:
+                        # Get latest market data
+                        prices = self.get_latest_prices(symbol)
+                        
+                        # Update performance metrics
+                        self.update_performance_metrics(prices)
+                        
+                        # Send periodic updates
+                        if random.random() < 0.1:  # 10% chance to send updates
+                            await self.telegram_notifier.send_quote()
+                            await self.telegram_notifier.send_market_insight()
+                            await self.telegram_notifier.send_joke()
+                            await self.telegram_notifier.send_meme()
+                            await self.telegram_notifier.send_trivia()
+                            await self.telegram_notifier.send_term_of_the_day()
+                            await self.send_market_update()
+                        
+                        # Check if it's time to save state
+                        if (datetime.now() - self.last_state_save).total_seconds() > self.state_save_interval:
+                            self.save_state()
+                            self.last_state_save = datetime.now()
+                    
+                    # Sleep for a short interval
+                    await asyncio.sleep(1)
+                    
+                except Exception as e:
+                    logging.error(f"Error in main loop: {e}")
+                    await asyncio.sleep(5)  # Wait longer on error
+                    
         except Exception as e:
-            logging.error(f"Error checking scalping conditions: {e}")
-            return False
-            
-    def _check_multi_timeframe_trend(self) -> bool:
-        """Check trend alignment across multiple timeframes"""
-        try:
-            # Get data for different timeframes
-            m1_data = self.get_historical_data(self.symbol, 'M1', 100)
-            m5_data = self.get_historical_data(self.symbol, 'M5', 100)
-            h1_data = self.get_historical_data(self.symbol, 'H1', 100)
-            
-            if m1_data is None or m5_data is None or h1_data is None:
-                return False
-                
-            # Calculate trend direction for each timeframe
-            m1_trend = self._calculate_trend_direction(m1_data)
-            m5_trend = self._calculate_trend_direction(m5_data)
-            h1_trend = self._calculate_trend_direction(h1_data)
-            
-            # Check if trends are aligned
-            return m1_trend == m5_trend == h1_trend
-            
-        except Exception as e:
-            logging.error(f"Error checking multi-timeframe trend: {e}")
-            return False
-            
-    def _check_volume_spike(self, current_volume: float, volume_history: pd.Series) -> bool:
-        """Check for significant volume spike"""
-        try:
-            # Calculate average volume
-            avg_volume = volume_history.rolling(window=self.scalping_params['volume_lookback']).mean().iloc[-1]
-            
-            # Check if current volume is significantly higher
-            return current_volume >= avg_volume * self.scalping_params['volume_spike_threshold']
-            
-        except Exception as e:
-            logging.error(f"Error checking volume spike: {e}")
-            return False
-            
-    def _calculate_dynamic_position_size(self, direction: str, current_price: float, atr: float, volatility: float) -> float:
-        """Calculate position size based on volatility and market conditions"""
-        try:
-            # Base position size
-            position_size = self.scalping_params['base_position_size']
-            
-            # Adjust for volatility
-            if volatility > self.scalping_params['max_volatility'] * 0.8:
-                position_size *= 0.5
-            elif volatility < self.scalping_params['min_volatility'] * 1.2:
-                position_size *= 1.2
-                
-            # Adjust for ATR
-            atr_multiplier = 1.0 - (atr / current_price)
-            position_size *= max(0.5, min(1.5, atr_multiplier))
-            
-            # Ensure within limits
-            position_size = max(self.scalping_params['min_position_size'],
-                              min(self.scalping_params['max_position_size'], position_size))
-                              
-            return position_size
-            
-        except Exception as e:
-            logging.error(f"Error calculating dynamic position size: {e}")
-            return self.scalping_params['base_position_size']
-            
-    def _calculate_stop_loss(self, direction: str, current_price: float, atr: float) -> float:
-        """Calculate stop loss level"""
-        try:
-            # Base stop loss distance
-            stop_distance = atr * 2.0
-            
-            # Adjust for direction
-            if direction == 'buy':
-                return current_price - stop_distance
-            else:
-                return current_price + stop_distance
-                
-        except Exception as e:
-            logging.error(f"Error calculating stop loss: {e}")
-            return 0.0
-            
-    def _calculate_take_profit(self, direction: str, current_price: float, atr: float) -> float:
-        """Calculate take profit level"""
-        try:
-            # Base take profit distance (3:1 risk-reward)
-            tp_distance = atr * 6.0
-            
-            # Adjust for direction
-            if direction == 'buy':
-                return current_price + tp_distance
-            else:
-                return current_price - tp_distance
-                
-        except Exception as e:
-            logging.error(f"Error calculating take profit: {e}")
-            return 0.0
-            
-    def _calculate_partial_tp(self, direction: str, current_price: float, atr: float) -> float:
-        """Calculate partial take profit level"""
-        try:
-            # Partial take profit at 1.5:1 risk-reward
-            tp_distance = atr * 3.0
-            
-            # Adjust for direction
-            if direction == 'buy':
-                return current_price + tp_distance
-            else:
-                return current_price - tp_distance
-                
-        except Exception as e:
-            logging.error(f"Error calculating partial take profit: {e}")
-            return 0.0
-            
-    def _calculate_trailing_stop(self, direction: str, current_price: float, atr: float) -> float:
-        """Calculate trailing stop level"""
-        try:
-            # Base trailing stop distance
-            stop_distance = atr * 1.5
-            
-            # Adjust for direction
-            if direction == 'buy':
-                return current_price - stop_distance
-            else:
-                return current_price + stop_distance
-                
-        except Exception as e:
-            logging.error(f"Error calculating trailing stop: {e}")
-            return 0.0
-            
-    def _calculate_trend_direction(self, df: pd.DataFrame) -> str:
-        """Calculate trend direction based on EMAs"""
-        try:
-            # Get EMAs
-            ema_fast = df['ema_5'].iloc[-1]
-            ema_slow = df['ema_20'].iloc[-1]
-            
-            # Determine trend
-            if ema_fast > ema_slow:
-                return 'buy'
-            else:
-                return 'sell'
-                
-        except Exception as e:
-            logging.error(f"Error calculating trend direction: {e}")
-            return None
+            logging.error(f"Critical error in bot execution: {e}")
+        finally:
+            self.shutdown()
 
-class MarketHours:
-    def __init__(self):
-        # Define market sessions (UTC)
-        self.sessions = {
-            'london': {
-                'open': (7, 0),    # 7:00 UTC
-                'close': (16, 0),  # 16:00 UTC
-                'name': 'London'
-            },
-            'new_york': {
-                'open': (13, 0),   # 13:00 UTC
-                'close': (22, 0),  # 22:00 UTC
-                'name': 'New York'
-            },
-            'tokyo': {
-                'open': (0, 0),    # 00:00 UTC
-                'close': (9, 0),   # 09:00 UTC
-                'name': 'Tokyo'
-            },
-            'sydney': {
-                'open': (22, 0),   # 22:00 UTC (previous day)
-                'close': (7, 0),   # 07:00 UTC
-                'name': 'Sydney'
+    async def execute_trade(self, trade_signal: Dict) -> None:
+        """Execute a trade and send notification"""
+        try:
+            # Execute trade logic here...
+            
+            # Send trade notification
+            await self.telegram_notifier.send_trade_notification(trade_signal)
+            
+            # Update performance metrics
+            self.update_performance_metrics(trade_signal)
+            
+        except Exception as e:
+            logging.error(f"Error executing trade: {e}")
+            
+    async def send_daily_report(self) -> None:
+        """Send daily performance report"""
+        try:
+            performance = {
+                'total_trades': len(self.trade_history),
+                'win_rate': self.calculate_win_rate(),
+                'total_profit': sum(t['profit'] for t in self.trade_history),
+                'avg_profit': self.calculate_average_profit(),
+                'max_drawdown': self.calculate_max_drawdown(),
+                'best_pair': self.get_best_performing_pair(),
+                'worst_pair': self.get_worst_performing_pair()
             }
+            
+            await self.telegram_notifier.send_performance_update(performance)
+            
+        except Exception as e:
+            logging.error(f"Error sending daily report: {e}")
+            
+    async def send_market_update(self) -> None:
+        """Send market conditions update"""
+        try:
+            conditions = {
+                'volatility': self.calculate_market_volatility(),
+                'trend': self.determine_market_trend(),
+                'volume': self.calculate_volume_ratio(),
+                'active_sessions': self.pair_manager._get_current_session(),
+                'best_pairs': self.pair_manager.get_best_pairs_for_session(self.pair_manager._get_current_session())
+            }
+            
+            await self.telegram_notifier.send_market_condition_update(conditions)
+            
+        except Exception as e:
+            logging.error(f"Error sending market update: {e}")
+
+def create_bot():
+    """Create and initialize the bot with default configuration"""
+    config = {
+        'telegram_bot_token': "7465051685:AAGA7xL0KGRYVmOHgObaIrmIcv1RZnHf6AM",
+        'telegram_chat_id': "6108013670",
+        'max_daily_trades': 10,
+        'max_capital_exposure': 0.1,  # 10% of account
+        'risk_per_trade': 0.01,  # 1% per trade
+        'max_drawdown': 0.05,  # 5% max drawdown
+        'state_save_interval': 3600,  # 1 hour
+        'trading_hours': {
+            'start': '08:00',
+            'end': '20:00'
+        },
+        'symbols': ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'EURJPY', 'GBPJPY'],
+        'timeframes': ['M1', 'M5', 'M15', 'H1', 'H4'],
+        'indicators': {
+            'rsi_period': 14,
+            'ema_fast': 9,
+            'ema_slow': 21,
+            'atr_period': 14
+        }
+    }
+    
+    return AdvancedPremiumBot(config)
+
+class AdvancedPremiumBot:
+    def __init__(self, config: Dict):
+        """Initialize the bot with configuration parameters"""
+        self.config = config
+        
+        # Initialize currency pair manager
+        self.pair_manager = CurrencyPairManager()
+        
+        # Initialize Telegram notifier with credentials
+        self.telegram_notifier = TelegramNotifier(
+            bot_token=self.config['telegram_bot_token'],
+            chat_id=self.config['telegram_chat_id']
+        )
+        
+        # Initialize other components
+        self.risk_manager = RiskManager()
+        self.strategy_manager = StrategyManager()
+        self.order_router = OrderRouter()
+        
+        # Performance tracking
+        self.trade_history = []
+        self.performance_metrics = {
+            'total_trades': 0,
+            'winning_trades': 0,
+            'total_profit': 0.0,
+            'max_drawdown': 0.0,
+            'current_drawdown': 0.0,
+            'win_rate': 0.0,
+            'average_profit': 0.0,
+            'best_trade': 0.0,
+            'worst_trade': 0.0
         }
         
-        # Define high volatility periods
-        self.high_volatility_periods = [
-            ((13, 0), (15, 0)),  # London-New York overlap
-            ((7, 0), (9, 0)),    # London open
-            ((13, 0), (14, 0)),  # New York open
-            ((0, 0), (1, 0)),    # Tokyo open
-            ((22, 0), (23, 0))   # Sydney open
-        ]
+        # State management
+        self.last_state_save = datetime.now()
+        self.state_save_interval = self.config['state_save_interval']
+        self.running = False
         
-        # Define low liquidity periods
-        self.low_liquidity_periods = [
-            ((21, 0), (22, 0)),  # End of New York session
-            ((5, 0), (7, 0)),    # Between Tokyo close and London open
-            ((15, 0), (16, 0)),  # End of London session
-            ((9, 0), (10, 0))    # End of Tokyo session
-        ]
+        # Initialize price providers
+        self._initialize_price_providers()
         
-    def is_market_open(self) -> bool:
-        """Check if any major market is currently open"""
-        current_time = datetime.now().time()
-        current_hour = current_time.hour
-        current_minute = current_time.minute
-        
-        for session in self.sessions.values():
-            open_hour, open_minute = session['open']
-            close_hour, close_minute = session['close']
+        logging.info("Bot initialized with configuration")
+
+    async def run(self):
+        """Main bot execution loop"""
+        try:
+            self.running = True
+            logging.info("Bot started successfully")
             
-            # Handle sessions that cross midnight
-            if close_hour < open_hour:
-                if (current_hour > open_hour or 
-                    (current_hour == open_hour and current_minute >= open_minute) or
-                    current_hour < close_hour or
-                    (current_hour == close_hour and current_minute < close_minute)):
-                    return True
-            else:
-                if (current_hour > open_hour or 
-                    (current_hour == open_hour and current_minute >= open_minute)) and \
-                   (current_hour < close_hour or
-                    (current_hour == close_hour and current_minute < close_minute)):
-                    return True
+            # Send startup notifications
+            await self.telegram_notifier.send_market_insight()
+            await self.telegram_notifier.send_quote()
+            await self.telegram_notifier.send_joke()
+            await self.telegram_notifier.send_meme()
+            await self.telegram_notifier.send_trivia()
+            await self.telegram_notifier.send_term_of_the_day()
+            
+            while self.running:
+                try:
+                    # Get current session
+                    current_session = self.pair_manager._get_current_session()
                     
-        return False
-        
-    def is_high_volatility_period(self) -> bool:
-        """Check if current time is during a high volatility period"""
-        current_time = datetime.now().time()
-        current_hour = current_time.hour
-        current_minute = current_time.minute
-        
-        for start, end in self.high_volatility_periods:
-            start_hour, start_minute = start
-            end_hour, end_minute = end
-            
-            if (current_hour > start_hour or 
-                (current_hour == start_hour and current_minute >= start_minute)) and \
-               (current_hour < end_hour or
-                (current_hour == end_hour and current_minute < end_minute)):
-                return True
-                
-        return False
-        
-    def is_low_liquidity_period(self) -> bool:
-        """Check if current time is during a low liquidity period"""
-        current_time = datetime.now().time()
-        current_hour = current_time.hour
-        current_minute = current_time.minute
-        
-        for start, end in self.low_liquidity_periods:
-            start_hour, start_minute = start
-            end_hour, end_minute = end
-            
-            if (current_hour > start_hour or 
-                (current_hour == start_hour and current_minute >= start_minute)) and \
-               (current_hour < end_hour or
-                (current_hour == end_hour and current_minute < end_minute)):
-                return True
-                
-        return False
-        
-    def get_active_sessions(self) -> List[str]:
-        """Get list of currently active market sessions"""
-        active_sessions = []
-        current_time = datetime.now().time()
-        current_hour = current_time.hour
-        current_minute = current_time.minute
-        
-        for session_name, session in self.sessions.items():
-            open_hour, open_minute = session['open']
-            close_hour, close_minute = session['close']
-            
-            # Handle sessions that cross midnight
-            if close_hour < open_hour:
-                if (current_hour > open_hour or 
-                    (current_hour == open_hour and current_minute >= open_minute) or
-                    current_hour < close_hour or
-                    (current_hour == close_hour and current_minute < close_minute)):
-                    active_sessions.append(session['name'])
-            else:
-                if (current_hour > open_hour or 
-                    (current_hour == open_hour and current_minute >= open_minute)) and \
-                   (current_hour < close_hour or
-                    (current_hour == close_hour and current_minute < close_minute)):
-                    active_sessions.append(session['name'])
+                    # Get best pairs for current session
+                    best_pairs = self.pair_manager.get_best_pairs_for_session(current_session)
                     
-        return active_sessions
-        
-    def get_next_session_change(self) -> Tuple[str, datetime]:
-        """Get the next market session change"""
-        current_time = datetime.now()
-        next_change = None
-        next_session = None
-        
-        for session in self.sessions.values():
-            open_time = current_time.replace(
-                hour=session['open'][0],
-                minute=session['open'][1],
-                second=0,
-                microsecond=0
-            )
-            close_time = current_time.replace(
-                hour=session['close'][0],
-                minute=session['close'][1],
-                second=0,
-                microsecond=0
-            )
+                    # Process each pair
+                    for symbol in best_pairs:
+                        # Get latest market data
+                        prices = self.get_latest_prices(symbol)
+                        
+                        # Update performance metrics
+                        self.update_performance_metrics(prices)
+                        
+                        # Send periodic updates
+                        if random.random() < 0.1:  # 10% chance to send updates
+                            await self.telegram_notifier.send_quote()
+                            await self.telegram_notifier.send_market_insight()
+                            await self.telegram_notifier.send_joke()
+                            await self.telegram_notifier.send_meme()
+                            await self.telegram_notifier.send_trivia()
+                            await self.telegram_notifier.send_term_of_the_day()
+                            await self.send_market_update()
+                        
+                        # Check if it's time to save state
+                        if (datetime.now() - self.last_state_save).total_seconds() > self.state_save_interval:
+                            self.save_state()
+                            self.last_state_save = datetime.now()
+                    
+                    # Sleep for a short interval
+                    await asyncio.sleep(1)
+                    
+                except Exception as e:
+                    logging.error(f"Error in main loop: {e}")
+                    await asyncio.sleep(5)  # Wait longer on error
+                    
+        except Exception as e:
+            logging.error(f"Critical error in bot execution: {e}")
+        finally:
+            self.shutdown()
+
+    async def execute_trade(self, trade_signal: Dict) -> None:
+        """Execute a trade and send notification"""
+        try:
+            # Execute trade logic here...
             
-            # Handle sessions that cross midnight
-            if close_time < open_time:
-                close_time += timedelta(days=1)
-                
-            # Check if session is about to open
-            if open_time > current_time and (next_change is None or open_time < next_change):
-                next_change = open_time
-                next_session = f"{session['name']} Open"
-                
-            # Check if session is about to close
-            if close_time > current_time and (next_change is None or close_time < next_change):
-                next_change = close_time
-                next_session = f"{session['name']} Close"
-                
-        return next_session, next_change
+            # Send trade notification
+            await self.telegram_notifier.send_trade_notification(trade_signal)
+            
+            # Update performance metrics
+            self.update_performance_metrics(trade_signal)
+            
+        except Exception as e:
+            logging.error(f"Error executing trade: {e}")
+            
+    async def send_daily_report(self) -> None:
+        """Send daily performance report"""
+        try:
+            performance = {
+                'total_trades': len(self.trade_history),
+                'win_rate': self.calculate_win_rate(),
+                'total_profit': sum(t['profit'] for t in self.trade_history),
+                'avg_profit': self.calculate_average_profit(),
+                'max_drawdown': self.calculate_max_drawdown(),
+                'best_pair': self.get_best_performing_pair(),
+                'worst_pair': self.get_worst_performing_pair()
+            }
+            
+            await self.telegram_notifier.send_performance_update(performance)
+            
+        except Exception as e:
+            logging.error(f"Error sending daily report: {e}")
+            
+    async def send_market_update(self) -> None:
+        """Send market conditions update"""
+        try:
+            conditions = {
+                'volatility': self.calculate_market_volatility(),
+                'trend': self.determine_market_trend(),
+                'volume': self.calculate_volume_ratio(),
+                'active_sessions': self.pair_manager._get_current_session(),
+                'best_pairs': self.pair_manager.get_best_pairs_for_session(self.pair_manager._get_current_session())
+            }
+            
+            await self.telegram_notifier.send_market_condition_update(conditions)
+            
+        except Exception as e:
+            logging.error(f"Error sending market update: {e}")
 
 class CurrencyPairManager:
     def __init__(self):
+        """Initialize currency pair configurations"""
         self.pair_configs = {
             'EURUSD': {
-                'min_spread': 0.5,        # Minimum spread in pips
-                'max_spread': 2.0,        # Maximum spread in pips
-                'min_volume': 1000000,    # Minimum daily volume
-                'volatility_threshold': 0.0005,  # Volatility threshold
+                'min_spread': 0.5,
+                'max_spread': 3.0,
+                'min_volume': 1000,
+                'volatility_threshold': 0.002,
                 'preferred_sessions': ['london', 'new_york'],
-                'scalping_allowed': True,
+                'allow_scalping': True,
                 'position_size_multiplier': 1.0,
-                'max_daily_trades': 20,
+                'max_daily_trades': 10,
                 'risk_adjustment': 1.0
             },
             'GBPUSD': {
-                'min_spread': 1.0,
-                'max_spread': 3.0,
-                'min_volume': 800000,
-                'volatility_threshold': 0.0008,
-                'preferred_sessions': ['london', 'new_york'],
-                'scalping_allowed': True,
+                'min_spread': 0.8,
+                'max_spread': 4.0,
+                'min_volume': 800,
+                'volatility_threshold': 0.003,
+                'preferred_sessions': ['london'],
+                'allow_scalping': True,
                 'position_size_multiplier': 0.8,
-                'max_daily_trades': 15,
-                'risk_adjustment': 0.9
+                'max_daily_trades': 8,
+                'risk_adjustment': 1.2
             },
             'USDJPY': {
-                'min_spread': 0.8,
-                'max_spread': 2.5,
-                'min_volume': 900000,
-                'volatility_threshold': 0.0006,
+                'min_spread': 0.6,
+                'max_spread': 3.5,
+                'min_volume': 900,
+                'volatility_threshold': 0.0025,
                 'preferred_sessions': ['tokyo', 'london'],
-                'scalping_allowed': True,
+                'allow_scalping': True,
                 'position_size_multiplier': 0.9,
-                'max_daily_trades': 18,
-                'risk_adjustment': 0.95
+                'max_daily_trades': 9,
+                'risk_adjustment': 1.1
             },
             'AUDUSD': {
-                'min_spread': 1.2,
-                'max_spread': 3.5,
-                'min_volume': 700000,
-                'volatility_threshold': 0.0007,
+                'min_spread': 0.7,
+                'max_spread': 3.8,
+                'min_volume': 700,
+                'volatility_threshold': 0.0022,
                 'preferred_sessions': ['sydney', 'tokyo'],
-                'scalping_allowed': False,
+                'allow_scalping': False,
                 'position_size_multiplier': 0.7,
-                'max_daily_trades': 12,
-                'risk_adjustment': 0.85
+                'max_daily_trades': 7,
+                'risk_adjustment': 1.3
             },
             'EURJPY': {
-                'min_spread': 1.5,
-                'max_spread': 4.0,
-                'min_volume': 600000,
-                'volatility_threshold': 0.0010,
-                'preferred_sessions': ['london', 'tokyo'],
-                'scalping_allowed': True,
+                'min_spread': 0.9,
+                'max_spread': 4.5,
+                'min_volume': 600,
+                'volatility_threshold': 0.0035,
+                'preferred_sessions': ['tokyo', 'london'],
+                'allow_scalping': True,
                 'position_size_multiplier': 0.6,
-                'max_daily_trades': 10,
-                'risk_adjustment': 0.8
+                'max_daily_trades': 6,
+                'risk_adjustment': 1.4
             },
             'GBPJPY': {
-                'min_spread': 2.0,
+                'min_spread': 1.0,
                 'max_spread': 5.0,
-                'min_volume': 500000,
-                'volatility_threshold': 0.0012,
+                'min_volume': 500,
+                'volatility_threshold': 0.004,
                 'preferred_sessions': ['london', 'tokyo'],
-                'scalping_allowed': True,
+                'allow_scalping': True,
                 'position_size_multiplier': 0.5,
-                'max_daily_trades': 8,
-                'risk_adjustment': 0.7
+                'max_daily_trades': 5,
+                'risk_adjustment': 1.5
             }
         }
         
-        self.session_volatility_multipliers = {
-            'london': 1.2,
-            'new_york': 1.1,
-            'tokyo': 0.9,
-            'sydney': 0.8
-        }
-        
-        self.pair_performance = {}
-        self.pair_blacklist = set()
-        self.pair_whitelist = set()
+        self.performance_history = {}
+        self.blacklist = set()
+        self.whitelist = set()
         
     def get_pair_config(self, symbol: str) -> Dict:
         """Get configuration for a specific currency pair"""
@@ -2722,194 +2410,98 @@ class CurrencyPairManager:
         
     def is_pair_allowed(self, symbol: str) -> bool:
         """Check if a pair is allowed for trading"""
-        if symbol in self.pair_blacklist:
+        if self.whitelist and symbol not in self.whitelist:
             return False
-        if self.pair_whitelist and symbol not in self.pair_whitelist:
+        if symbol in self.blacklist:
             return False
         return True
         
     def update_pair_performance(self, symbol: str, trade_result: Dict) -> None:
         """Update performance metrics for a currency pair"""
-        try:
-            if symbol not in self.pair_performance:
-                self.pair_performance[symbol] = {
-                    'total_trades': 0,
-                    'winning_trades': 0,
-                    'total_profit': 0,
-                    'max_drawdown': 0,
-                    'avg_win': 0,
-                    'avg_loss': 0,
-                    'last_update': time.time()
-                }
-                
-            performance = self.pair_performance[symbol]
-            performance['total_trades'] += 1
-            performance['total_profit'] += trade_result['profit']
+        if symbol not in self.performance_history:
+            self.performance_history[symbol] = {
+                'total_trades': 0,
+                'winning_trades': 0,
+                'total_profit': 0.0,
+                'max_drawdown': 0.0,
+                'average_win': 0.0,
+                'average_loss': 0.0
+            }
             
-            if trade_result['profit'] > 0:
-                performance['winning_trades'] += 1
-                performance['avg_win'] = (performance['avg_win'] * (performance['winning_trades'] - 1) + 
-                                        trade_result['profit']) / performance['winning_trades']
-            else:
-                performance['avg_loss'] = (performance['avg_loss'] * 
-                                         (performance['total_trades'] - performance['winning_trades'] - 1) + 
-                                         abs(trade_result['profit'])) / (performance['total_trades'] - performance['winning_trades'])
-                
-            # Update max drawdown
-            current_drawdown = (performance['peak_equity'] - trade_result['equity']) / performance['peak_equity']
-            performance['max_drawdown'] = max(performance['max_drawdown'], current_drawdown)
+        history = self.performance_history[symbol]
+        history['total_trades'] += 1
+        if trade_result['profit'] > 0:
+            history['winning_trades'] += 1
+            history['average_win'] = (history['average_win'] * (history['winning_trades'] - 1) + 
+                                    trade_result['profit']) / history['winning_trades']
+        else:
+            history['average_loss'] = (history['average_loss'] * (history['total_trades'] - history['winning_trades'] - 1) + 
+                                     abs(trade_result['profit'])) / (history['total_trades'] - history['winning_trades'])
             
-            # Update peak equity
-            performance['peak_equity'] = max(performance.get('peak_equity', 0), trade_result['equity'])
-            
-            # Check if pair should be blacklisted
-            if (performance['total_trades'] >= 20 and 
-                performance['winning_trades'] / performance['total_trades'] < 0.4):
-                self.pair_blacklist.add(symbol)
-                logging.warning(f"Pair {symbol} blacklisted due to poor performance")
-                
-        except Exception as e:
-            logging.error(f"Error updating pair performance: {e}")
+        history['total_profit'] += trade_result['profit']
+        history['max_drawdown'] = max(history['max_drawdown'], abs(trade_result['drawdown']))
+        
+        # Check if pair should be blacklisted
+        if (history['total_trades'] >= 10 and 
+            history['winning_trades'] / history['total_trades'] < 0.3 and 
+            history['total_profit'] < 0):
+            self.blacklist.add(symbol)
             
     def get_best_pairs_for_session(self, current_session: str) -> List[str]:
         """Get the best pairs to trade in the current session"""
-        try:
-            suitable_pairs = []
+        best_pairs = []
+        
+        for symbol, config in self.pair_configs.items():
+            if not self.is_pair_allowed(symbol):
+                continue
+                
+            if current_session not in config['preferred_sessions']:
+                continue
+                
+            # Calculate score based on performance and volatility
+            volatility_score = self._calculate_volatility_score(symbol)
+            performance_score = self._calculate_performance_score(symbol)
             
-            for symbol, config in self.pair_configs.items():
-                if not self.is_pair_allowed(symbol):
-                    continue
-                    
-                # Check if pair is suitable for current session
-                if current_session in config['preferred_sessions']:
-                    # Get current market conditions
-                    tick = mt5.symbol_info_tick(symbol)
-                    if tick is None:
-                        continue
-                        
-                    # Calculate spread
-                    spread = (tick.ask - tick.bid) * 10000  # Convert to pips
-                    
-                    # Check if spread is within acceptable range
-                    if (spread >= config['min_spread'] and 
-                        spread <= config['max_spread']):
-                        
-                        # Calculate volatility score
-                        volatility_score = self._calculate_volatility_score(symbol)
-                        
-                        # Calculate performance score
-                        performance_score = self._calculate_performance_score(symbol)
-                        
-                        # Calculate final score
-                        final_score = (volatility_score * 0.4 + 
-                                     performance_score * 0.6)
-                        
-                        suitable_pairs.append({
-                            'symbol': symbol,
-                            'score': final_score,
-                            'spread': spread,
-                            'volatility': volatility_score,
-                            'performance': performance_score
-                        })
-                        
-            # Sort pairs by score
-            suitable_pairs.sort(key=lambda x: x['score'], reverse=True)
+            # Combine scores with weights
+            total_score = (volatility_score * 0.6 + performance_score * 0.4)
             
-            return [p['symbol'] for p in suitable_pairs[:3]]  # Return top 3 pairs
+            best_pairs.append((symbol, total_score))
             
-        except Exception as e:
-            logging.error(f"Error getting best pairs for session: {e}")
-            return []
-            
+        # Sort by score and return top pairs
+        best_pairs.sort(key=lambda x: x[1], reverse=True)
+        return [pair[0] for pair in best_pairs[:3]]  # Return top 3 pairs
+        
     def _calculate_volatility_score(self, symbol: str) -> float:
         """Calculate volatility score for a pair"""
-        try:
-            # Get recent price data
-            rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 0, 100)
-            if rates is None:
-                return 0
-                
-            # Calculate ATR
-            high = rates['high']
-            low = rates['low']
-            close = rates['close']
-            
-            tr = np.maximum(high - low, 
-                          np.maximum(np.abs(high - np.roll(close, 1)),
-                                   np.abs(low - np.roll(close, 1))))
-            atr = np.mean(tr)
-            
-            # Normalize ATR
-            normalized_atr = atr / close[-1]
-            
-            # Compare to threshold
-            threshold = self.pair_configs[symbol]['volatility_threshold']
-            score = min(1.0, normalized_atr / threshold)
-            
-            return score
-            
-        except Exception as e:
-            logging.error(f"Error calculating volatility score: {e}")
-            return 0
+        config = self.pair_configs[symbol]
+        volatility = self._get_recent_volatility(symbol)
+        
+        if volatility < config['volatility_threshold']:
+            return 0.3
+        elif volatility < config['volatility_threshold'] * 1.5:
+            return 0.7
+        else:
+            return 1.0
             
     def _calculate_performance_score(self, symbol: str) -> float:
         """Calculate performance score for a pair"""
-        try:
-            if symbol not in self.pair_performance:
-                return 0.5  # Default score for new pairs
-                
-            performance = self.pair_performance[symbol]
-            
-            if performance['total_trades'] < 10:
-                return 0.5
-                
-            # Calculate win rate
-            win_rate = performance['winning_trades'] / performance['total_trades']
-            
-            # Calculate risk-reward ratio
-            if performance['avg_loss'] == 0:
-                risk_reward = 1.0
-            else:
-                risk_reward = performance['avg_win'] / performance['avg_loss']
-                
-            # Calculate drawdown penalty
-            drawdown_penalty = 1.0 - min(1.0, performance['max_drawdown'] / 0.2)
-            
-            # Calculate final score
-            score = (win_rate * 0.4 + 
-                    min(1.0, risk_reward / 2.0) * 0.3 + 
-                    drawdown_penalty * 0.3)
-            
-            return score
-            
-        except Exception as e:
-            logging.error(f"Error calculating performance score: {e}")
+        if symbol not in self.performance_history:
             return 0.5
             
+        history = self.performance_history[symbol]
+        if history['total_trades'] < 5:
+            return 0.5
+            
+        win_rate = history['winning_trades'] / history['total_trades']
+        profit_factor = abs(history['average_win'] / history['average_loss']) if history['average_loss'] != 0 else 1.0
+        
+        return (win_rate * 0.6 + min(profit_factor, 2.0) * 0.4)
+        
     def adjust_position_size(self, symbol: str, base_size: float) -> float:
         """Adjust position size based on pair characteristics"""
-        try:
-            config = self.pair_configs.get(symbol, {})
-            if not config:
-                return base_size
-                
-            # Apply pair-specific multiplier
-            adjusted_size = base_size * config['position_size_multiplier']
-            
-            # Apply risk adjustment
-            adjusted_size *= config['risk_adjustment']
-            
-            # Apply session-specific adjustment
-            current_session = self._get_current_session()
-            if current_session in self.session_volatility_multipliers:
-                adjusted_size *= self.session_volatility_multipliers[current_session]
-                
-            return adjusted_size
-            
-        except Exception as e:
-            logging.error(f"Error adjusting position size: {e}")
-            return base_size
-            
+        config = self.pair_configs[symbol]
+        return base_size * config['position_size_multiplier'] * config['risk_adjustment']
+        
     def _get_current_session(self) -> str:
         """Get current trading session"""
         current_hour = datetime.now().hour
@@ -2922,3 +2514,118 @@ class CurrencyPairManager:
             return 'london'
         else:
             return 'new_york'
+
+class MarketHours:
+    def __init__(self):
+        """Initialize market hours for different trading sessions"""
+        # Define market sessions in UTC
+        self.sessions = {
+            'london': {
+                'open': 8,  # 8:00 UTC
+                'close': 16  # 16:00 UTC
+            },
+            'new_york': {
+                'open': 13,  # 13:00 UTC
+                'close': 21  # 21:00 UTC
+            },
+            'tokyo': {
+                'open': 0,   # 00:00 UTC
+                'close': 8   # 08:00 UTC
+            },
+            'sydney': {
+                'open': 22,  # 22:00 UTC
+                'close': 6   # 06:00 UTC (next day)
+            }
+        }
+        
+        # Define high volatility periods (session overlaps)
+        self.high_volatility_periods = [
+            ('london', 'new_york'),  # London-New York overlap
+            ('tokyo', 'london'),     # Tokyo-London overlap
+            ('sydney', 'tokyo')      # Sydney-Tokyo overlap
+        ]
+        
+        # Define low liquidity periods
+        self.low_liquidity_periods = [
+            (21, 22),  # Between New York close and Sydney open
+            (6, 8),    # Between Sydney close and Tokyo close
+            (16, 17)   # Between London close and New York open
+        ]
+        
+    def get_current_session(self) -> str:
+        """Get the current active trading session"""
+        current_hour = datetime.now().hour
+        
+        for session, hours in self.sessions.items():
+            if hours['close'] < hours['open']:  # Handle sessions that cross midnight
+                if current_hour >= hours['open'] or current_hour < hours['close']:
+                    return session
+            else:
+                if hours['open'] <= current_hour < hours['close']:
+                    return session
+                    
+        return 'closed'  # No active session
+        
+    def is_high_volatility_period(self) -> bool:
+        """Check if current time is a high volatility period"""
+        current_hour = datetime.now().hour
+        current_session = self.get_current_session()
+        
+        for session1, session2 in self.high_volatility_periods:
+            if current_session in [session1, session2]:
+                overlap_start = max(self.sessions[session1]['open'], self.sessions[session2]['open'])
+                overlap_end = min(self.sessions[session1]['close'], self.sessions[session2]['close'])
+                
+                if overlap_start <= current_hour < overlap_end:
+                    return True
+                    
+        return False
+        
+    def is_low_liquidity_period(self) -> bool:
+        """Check if current time is a low liquidity period"""
+        current_hour = datetime.now().hour
+        
+        for start, end in self.low_liquidity_periods:
+            if start <= current_hour < end:
+                return True
+                
+        return False
+        
+    def get_next_session_change(self) -> datetime:
+        """Get the time until the next session change"""
+        current_hour = datetime.now().hour
+        current_session = self.get_current_session()
+        
+        if current_session == 'closed':
+            # Find the next session to open
+            next_open = min(hours['open'] for hours in self.sessions.values())
+            next_session = next(session for session, hours in self.sessions.items() 
+                              if hours['open'] == next_open)
+        else:
+            # Find when current session closes
+            next_close = self.sessions[current_session]['close']
+            if next_close <= current_hour:
+                # Session is about to close, find next session
+                next_open = min(hours['open'] for session, hours in self.sessions.items() 
+                              if hours['open'] > current_hour)
+                next_session = next(session for session, hours in self.sessions.items() 
+                                  if hours['open'] == next_open)
+            else:
+                return datetime.now().replace(hour=next_close, minute=0, second=0, microsecond=0)
+                
+        return datetime.now().replace(hour=next_open, minute=0, second=0, microsecond=0)
+        
+    def get_active_sessions(self) -> List[str]:
+        """Get list of currently active trading sessions"""
+        active_sessions = []
+        current_hour = datetime.now().hour
+        
+        for session, hours in self.sessions.items():
+            if hours['close'] < hours['open']:  # Handle sessions that cross midnight
+                if current_hour >= hours['open'] or current_hour < hours['close']:
+                    active_sessions.append(session)
+            else:
+                if hours['open'] <= current_hour < hours['close']:
+                    active_sessions.append(session)
+                    
+        return active_sessions

@@ -1,75 +1,80 @@
-# Advanced Trading Bot with Telegram Control
+# Advanced Premium Trading Bot
 
-A sophisticated trading bot that can be controlled via Telegram commands. The bot supports multiple trading strategies including scalping, trend following, and more.
+A sophisticated trading bot with advanced features including risk management, multiple strategies, and Telegram notifications.
 
 ## Features
 
-- Telegram-based control interface
-- Multiple trading strategies (scalping, trend following, etc.)
-- Real-time market monitoring
-- Performance tracking
-- Risk management
-- Position sizing optimization
+- Multiple trading strategies (Scalping, Breakout, Pullback)
+- Advanced risk management
+- Real-time market analysis
+- Telegram notifications with:
+  - Trading quotes
+  - Market insights
+  - Trading jokes and memes
+  - Daily trivia
+  - Trading terms of the day
+  - Performance updates
+  - Market condition updates
 
-## Setup Instructions
+## Setup
 
-1. **Install Dependencies**
+1. Install Python 3.8 or higher
+2. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Create Telegram Bot**
-   - Open Telegram and search for @BotFather
-   - Send `/newbot` command
-   - Follow instructions to create your bot
-   - Save the bot token provided by BotFather
+3. Configure your Telegram bot:
+   - Create a bot using BotFather on Telegram
+   - Get your bot token and chat ID
+   - The bot will use these credentials automatically
 
-3. **Get Your Chat ID**
-   - Open Telegram and search for @userinfobot
-   - Send any message to get your chat ID
+## Usage
 
-4. **Create .env File**
-   Create a `.env` file in the project root with the following content:
-   ```
-   TELEGRAM_BOT_TOKEN=your_bot_token_here
-   TELEGRAM_CHAT_ID=your_chat_id_here
-   TRADING_SYMBOLS=EURUSD,GBPUSD,USDJPY
-   ```
-
-5. **Start the Bot**
+1. Start the bot:
    ```bash
-   python telegram_commands.py
+   python run_bot.py
    ```
 
-## Telegram Commands
+2. The bot will:
+   - Initialize all components
+   - Start monitoring the market
+   - Send Telegram notifications
+   - Execute trades based on strategies
+   - Log all activities to bot.log
 
-- `/start` - Start the trading bot
-- `/stop` - Stop the trading bot
-- `/status` - Get current bot status and performance
-- `/help` - Show available commands
+## Configuration
 
-## Bot Status Messages
+The bot comes with default configuration for:
+- Trading pairs: EURUSD, GBPUSD, USDJPY, AUDUSD, EURJPY, GBPJPY
+- Risk parameters
+- Trading hours
+- Technical indicators
 
-The bot will send you notifications for:
-- Bot startup and shutdown
-- Trade openings and closings
-- Errors and warnings
-- Performance updates
+To modify the configuration, edit the `create_bot()` function in `advanced_premium_bot.py`.
 
-## Requirements
+## Logging
 
-- Python 3.8 or higher
-- MetaTrader 5 installed and running
-- Active internet connection
-- Telegram account
+The bot logs all activities to `bot.log` and the console. Logs include:
+- Trade executions
+- Strategy signals
+- Risk management events
+- Error messages
+- Performance metrics
 
-## Security Notes
+## Telegram Notifications
 
-- Keep your `.env` file secure and never share it
-- Only share your bot token with trusted individuals
-- Monitor your bot's activity regularly
-- Set appropriate risk parameters in the configuration
+You will receive:
+- Trading quotes (hourly)
+- Market insights (every 30 minutes)
+- Trading jokes (every 2 hours)
+- Trading memes (every 3 hours)
+- Trading trivia (every 4 hours)
+- Trading term of the day (daily)
+- Trade notifications (real-time)
+- Performance updates (daily)
+- Market condition updates (periodic)
 
 ## Support
 
-For issues or questions, please open an issue in the repository. 
+For issues or questions, please check the logs and documentation. 
